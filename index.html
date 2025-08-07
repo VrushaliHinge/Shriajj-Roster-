@@ -1492,8 +1492,8 @@
                 };
             }
             
-            // Always deduct 30 minutes break time (applicable to all days)
-            let workingHours = totalHours > 0 ? totalHours - 0.5 : 0;
+            // Deduct 30 minutes break time only for shifts over 4 hours (not for overtime)
+            let workingHours = totalHours > 4 ? totalHours - 0.5 : totalHours;
             workingHours = Math.max(0, workingHours);
             
             // Initialize leave hours
@@ -1542,14 +1542,21 @@
             if (end.getTime() > overtimeStart.getTime()) {
                 // Shift extends past 6pm
                 if (start.getTime() >= overtimeStart.getTime()) {
-                    // All hours are overtime
-                    overtimeHours = workingHours;
+                    // All hours are overtime - no break deduction for overtime
+                    overtimeHours = totalHours;
                 } else {
                     // Split between regular and overtime
-                    const regularEndTime = Math.min(end.getTime(), overtimeStart.getTime());
-                    const regularWorkTime = (regularEndTime - start.getTime()) / (1000 * 60 * 60);
-                    regularHours = Math.max(0, regularWorkTime - 0.5); // Deduct break from regular hours
-                    overtimeHours = Math.max(0, (end.getTime() - overtimeStart.getTime()) / (1000 * 60 * 60));
+                    const regularWorkTime = (overtimeStart.getTime() - start.getTime()) / (1000 * 60 * 60);
+                    const overtimeWorkTime = (end.getTime() - overtimeStart.getTime()) / (1000 * 60 * 60);
+                    
+                    // Apply break deduction only to regular hours if total shift > 4 hours
+                    if (totalHours > 4) {
+                        regularHours = Math.max(0, regularWorkTime - 0.5);
+                        overtimeHours = overtimeWorkTime; // No break deduction for overtime
+                    } else {
+                        regularHours = regularWorkTime;
+                        overtimeHours = overtimeWorkTime;
+                    }
                     workingHours = regularHours + overtimeHours;
                 }
             } else {
@@ -2573,8 +2580,8 @@
             const end = new Date(`2024-01-01 ${endTime}`);
             let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
             
-            // Always deduct 30 minutes break time (applicable to all days)
-            if (hours > 0) {
+            // Deduct 30 minutes break time only for shifts over 4 hours
+            if (hours > 4) {
                 hours -= 0.5;
             }
             
@@ -3020,6 +3027,9 @@
             appState.employees = [...newEmployees];
             
             console.log('✅ Complete roster data loaded with', Object.keys(appState.allRosterData[weekKey]).length, 'employees and all shifts from image');
+            
+            // Force save the complete data to database immediately
+            saveRosterData();
         }
 
         // Start the application when the page loads
