@@ -1030,6 +1030,14 @@
                         <textarea id="shiftNotes" rows="3" class="w-full mt-1" placeholder="Additional notes..."></textarea>
                     </div>
                     
+                    <div>
+                        <label class="flex items-center text-sm font-medium text-gray-700">
+                            <input type="checkbox" id="publicHolidayFlag" class="h-4 w-4 text-pink-600 border-gray-300 rounded mr-2">
+                            <span class="text-pink-600 font-semibold">Public Holiday</span>
+                            <span class="text-gray-500 ml-1">(Pink highlighting will be applied)</span>
+                        </label>
+                    </div>
+                    
                     <div class="flex justify-end space-x-2">
                         <button type="button" id="deleteShift" class="btn-secondary text-error">
                             <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
@@ -2000,6 +2008,12 @@
             const card = document.createElement('div');
             card.className = 'shift-card';
             
+            // Add pink background for public holidays
+            if (shift.isPublicHoliday) {
+                card.style.backgroundColor = '#FCE7F3'; // Pink background
+                card.style.borderColor = '#F472B6'; // Pink border
+            }
+            
             // Calculate shift hours using the proper business rules
             const hours = calculateHours(
                 shift.scheduledStart,
@@ -2015,6 +2029,9 @@
             const totalHours = hours.total;
             const hoursDisplay = totalHours > 0 ? `${totalHours}h` : '';
             
+            // Add PH indicator for public holidays
+            const publicHolidayIndicator = shift.isPublicHoliday ? '<div style="font-size: 0.7rem; color: #BE185D; font-weight: 600; margin-top: 2px;">PUBLIC HOLIDAY</div>' : '';
+            
             // Format according to original design: Employee name with time range and hours
             card.innerHTML = `
                 <div style="font-weight: 600; margin-bottom: 2px;">${employee}</div>
@@ -2022,6 +2039,7 @@
                     ${shift.scheduledStart || '09:00'} - ${shift.scheduledEnd || '17:00'}
                 </div>
                 ${hoursDisplay ? `<div style="font-size: 0.75rem; color: #6B7280; margin-top: 2px; font-weight: 500;">${hoursDisplay}</div>` : ''}
+                ${publicHolidayIndicator}
             `;
             
             if (appState.editMode) {
@@ -2105,6 +2123,7 @@
             document.getElementById('shiftEndTime').value = shift?.scheduledEnd || '17:00';
             document.getElementById('shiftLeaveType').value = shift?.leaveType || '';
             document.getElementById('shiftNotes').value = shift?.notes || '';
+            document.getElementById('publicHolidayFlag').checked = shift?.isPublicHoliday || false;
         }
 
         function handleShiftFormSubmit(event) {
@@ -2122,6 +2141,7 @@
                 scheduledEnd: document.getElementById('shiftEndTime').value,
                 leaveType: document.getElementById('shiftLeaveType').value,
                 notes: document.getElementById('shiftNotes').value,
+                isPublicHoliday: document.getElementById('publicHolidayFlag').checked,
                 actualStart: '',
                 actualEnd: '',
                 leaveHours: 0
@@ -2585,9 +2605,16 @@
                             const start12hr = convertTo12Hour(startTime);
                             const end12hr = convertTo12Hour(endTime);
                             
-                            htmlContent += `<td class="employee-cell">
+                            // Add pink background for public holidays in HTML download
+                            const cellStyle = locationShift.isPublicHoliday ? 
+                                'class="employee-cell" style="background-color: #FCE7F3; border-color: #F472B6;"' : 
+                                'class="employee-cell"';
+                            
+                            const publicHolidayLabel = locationShift.isPublicHoliday ? '<br><small style="color: #BE185D; font-weight: bold;">PUBLIC HOLIDAY</small>' : '';
+                            
+                            htmlContent += `<td ${cellStyle}>
                                 <strong>${employee}</strong><br>
-                                Scheduled: ${start12hr} - ${end12hr}
+                                Scheduled: ${start12hr} - ${end12hr}${publicHolidayLabel}
                             </td>`;
                         } else {
                             htmlContent += '<td></td>';
@@ -3045,7 +3072,7 @@
             // Always replace with the complete roster data from the image
             appState.allRosterData[weekKey] = {
                 'Bhanush': {
-                    'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Caroline Springs', employee: 'Bhanush', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
+                    'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Caroline Springs', employee: 'Bhanush', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0, isPublicHoliday: true }],
                     'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs', employee: 'Bhanush', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
                     'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Woodgrove', employee: 'Bhanush', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
                     'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '20:00', location: 'Woodgrove', employee: 'Bhanush', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
@@ -3071,7 +3098,7 @@
                     'Sat 9-Aug': [{ scheduledStart: '12:00', scheduledEnd: '17:00', location: 'Caroline Springs', employee: 'Vansh', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }]
                 },
                 'Kashish': {
-                    'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza', employee: 'Kashish', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
+                    'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza', employee: 'Kashish', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0, isPublicHoliday: true }],
                     'Mon 4-Aug': [{ scheduledStart: '09:15', scheduledEnd: '17:30', location: 'Werribee Plaza', employee: 'Kashish', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
                     'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Werribee Plaza', employee: 'Kashish', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
                     'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Werribee Plaza', employee: 'Kashish', actualStart: '', actualEnd: '', leaveType: '', notes: '', leaveHours: 0 }],
