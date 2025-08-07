@@ -535,6 +535,44 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        
+        /* Enhanced checkbox styling */
+        input[type="checkbox"] {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            width: 1rem !important;
+            height: 1rem !important;
+            border: 2px solid #d1d5db !important;
+            border-radius: 0.25rem !important;
+            background-color: white !important;
+            cursor: pointer !important;
+            position: relative !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        input[type="checkbox"]:checked {
+            background-color: #3b82f6 !important;
+            border-color: #3b82f6 !important;
+        }
+        
+        input[type="checkbox"]:checked::after {
+            content: '✓' !important;
+            color: white !important;
+            font-size: 0.75rem !important;
+            font-weight: bold !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            line-height: 1 !important;
+        }
+        
+        /* Pink checkbox for public holidays */
+        input[type="checkbox"].pink-checkbox:checked {
+            background-color: #ec4899 !important;
+            border-color: #ec4899 !important;
+        }
 
         /* Modal */
         .modal-overlay {
@@ -1078,8 +1116,7 @@
                             <input 
                                 type="checkbox" 
                                 id="publicHolidayFlag" 
-                                class="h-4 w-4 text-pink-600 border-gray-300 rounded mr-2"
-                                style="accent-color: #ec4899;"
+                                class="h-4 w-4 text-pink-600 border-gray-300 rounded mr-2 pink-checkbox"
                             >
                             <span class="text-pink-600 font-semibold">Public Holiday</span>
                             <span class="text-gray-500 ml-1">(Pink highlighting will be applied)</span>
