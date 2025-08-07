@@ -1469,8 +1469,24 @@
             endDate.setDate(startDate.getDate() + 6);
             
             const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const startStr = `${startDate.getDate()}-${monthNames[startDate.getMonth()]}`;
-            const endStr = `${endDate.getDate()}-${monthNames[endDate.getMonth()]}`;
+            
+            // Include year if different between start and end dates, or if not current year
+            const currentYear = new Date().getFullYear();
+            const startYear = startDate.getFullYear();
+            const endYear = endDate.getFullYear();
+            
+            let startStr, endStr;
+            
+            if (startYear !== currentYear || endYear !== currentYear || startYear !== endYear) {
+                // Show year when different from current year or when spanning years
+                startStr = `${startDate.getDate()}-${monthNames[startDate.getMonth()]}-${startYear}`;
+                endStr = `${endDate.getDate()}-${monthNames[endDate.getMonth()]}-${endYear}`;
+            } else {
+                // Current year - show year once at the end
+                startStr = `${startDate.getDate()}-${monthNames[startDate.getMonth()]}`;
+                endStr = `${endDate.getDate()}-${monthNames[endDate.getMonth()]}`;
+                return `${startStr} to ${endStr}, ${startYear}`;
+            }
             
             return `${startStr} to ${endStr}`;
         }
