@@ -2934,41 +2934,205 @@
             const weekString = getCurrentWeekString();
             const weekData = appState.allRosterData[weekKey] || {};
             const weekDays = getCurrentWeekDates();
+            const today = new Date();
+            const timeString = today.toLocaleTimeString('en-AU', { 
+                hour12: true, 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            const dateString = today.toLocaleDateString('en-AU', {
+                day: 'numeric',
+                month: 'numeric',
+                year: 'numeric'
+            });
             
-            // Create employee-friendly CSV content
-            let csvContent = `Employee Roster - Week ${weekString}\n\n`;
-            csvContent += 'Employee,Day,Location,Start Time,End Time,Hours,Notes\n';
+            // Create employee-friendly HTML content with matching calculations
+            let htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee_Roster_Report_${weekString.replace(/\s+/g, '_').replace(/,/g, '')}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .company-name { font-size: 18px; font-weight: bold; color: #4285f4; }
+        .report-title { font-size: 16px; margin: 10px 0; }
+        .generated { font-size: 12px; color: #666; margin-bottom: 20px; }
+        .employee-section { margin-bottom: 40px; page-break-inside: avoid; }
+        .employee-header { background-color: #f0f8ff; padding: 12px; border-left: 4px solid #4285f4; margin-bottom: 15px; }
+        .employee-name { font-size: 16px; font-weight: bold; color: #333; }
+        .weekly-summary { background-color: #f9f9f9; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
+        .summary-item { padding: 5px; font-size: 12px; }
+        .summary-label { font-weight: bold; color: #555; }
+        .summary-value { color: #333; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+        th { background-color: #f5f5f5; font-weight: bold; font-size: 12px; }
+        td { font-size: 11px; }
+        .day-off { color: #888; font-style: italic; }
+        .public-holiday { background-color: #FCE7F3; border-color: #F472B6; }
+        .notes-cell { max-width: 120px; word-wrap: break-word; }
+        .hours-cell { text-align: right; font-weight: bold; }
+        .footer { margin-top: 30px; font-size: 11px; color: #666; text-align: center; }
+        @media print {
+            .employee-section { page-break-before: always; }
+            .employee-section:first-child { page-break-before: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-name">SHRIAJJ PTY LTD</div>
+        <div class="report-title">Employee Roster Report - Week ${weekString}</div>
+        <div class="generated">Generated on ${dateString} at ${timeString}</div>
+    </div>
+`;
             
-            // Organize by employee
+            // Process each employee using the same calculation method as weekly summary
             appState.employees.forEach(employee => {
                 const employeeData = weekData[employee] || {};
+                const weeklyHours = getWeeklySummary(employee);
+                
+                htmlContent += `
+    <div class="employee-section">
+        <div class="employee-header">
+            <div class="employee-name">${employee}</div>
+        </div>
+        
+        <div class="weekly-summary">
+            <div class="summary-label">Weekly Hours Summary (Quarter-hour rounding applied)</div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-label">Regular Hours:</span>
+                    <span class="summary-value">${weeklyHours.mondayToFridayRegular.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Overtime (6pm+):</span>
+                    <span class="summary-value">${weeklyHours.overtime.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Saturday:</span>
+                    <span class="summary-value">${weeklyHours.saturday.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Sunday:</span>
+                    <span class="summary-value">${weeklyHours.sunday.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Public Holiday:</span>
+                    <span class="summary-value">${weeklyHours.publicHoliday.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Annual Leave:</span>
+                    <span class="summary-value">${weeklyHours.annualLeave.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Sick Leave:</span>
+                    <span class="summary-value">${weeklyHours.sickLeave.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Total Hours:</span>
+                    <span class="summary-value">${weeklyHours.total.toFixed(2)}h</span>
+                </div>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Location</th>
+                    <th>Scheduled Time</th>
+                    <th>Actual Time</th>
+                    <th>Hours</th>
+                    <th>Leave Type</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>`;
+                
                 weekDays.forEach(day => {
                     const shifts = employeeData[day] || [];
                     if (shifts.length === 0) {
-                        csvContent += `${employee},${day},,,,0,Day Off\n`;
+                        htmlContent += `
+                <tr>
+                    <td>${day}</td>
+                    <td class="day-off">Day Off</td>
+                    <td class="day-off">-</td>
+                    <td class="day-off">-</td>
+                    <td class="hours-cell day-off">0.00</td>
+                    <td class="day-off">-</td>
+                    <td class="day-off">-</td>
+                </tr>`;
                     } else {
-                        shifts.forEach(shift => {
-                            const startTime = shift.scheduledStart || '09:00';
-                            const endTime = shift.scheduledEnd || '17:00';
-                            const hours = calculateShiftHours(startTime, endTime);
-                            const notes = shift.notes || '';
-                            csvContent += `${employee},${day},${shift.location || ''},${startTime},${endTime},${hours},"${notes}"\n`;
+                        shifts.forEach((shift, index) => {
+                            const hours = calculateHours(
+                                shift.scheduledStart,
+                                shift.scheduledEnd,
+                                shift.actualStart,
+                                shift.actualEnd,
+                                day,
+                                shift.leaveType,
+                                shift.leaveHours,
+                                shift.isPublicHoliday
+                            );
+                            
+                            const scheduledTime = `${convertTo12Hour(shift.scheduledStart || '09:00')} - ${convertTo12Hour(shift.scheduledEnd || '17:00')}`;
+                            const actualTime = (shift.actualStart && shift.actualEnd) ? 
+                                `${convertTo12Hour(shift.actualStart)} - ${convertTo12Hour(shift.actualEnd)}` : 
+                                'Same as scheduled';
+                            
+                            const leaveTypeDisplay = shift.leaveType ? 
+                                (shift.leaveType === 'annual' ? 'Annual Leave' :
+                                 shift.leaveType === 'sick' ? 'Sick Leave' :
+                                 shift.leaveType === 'public' ? 'Public Holiday' : '') : '-';
+                            
+                            const rowClass = shift.isPublicHoliday ? 'public-holiday' : '';
+                            
+                            htmlContent += `
+                <tr class="${rowClass}">
+                    <td>${index === 0 ? day : ''}</td>
+                    <td>${shift.location || '-'}</td>
+                    <td>${scheduledTime}</td>
+                    <td>${actualTime}</td>
+                    <td class="hours-cell">${hours.total.toFixed(2)}</td>
+                    <td>${leaveTypeDisplay}</td>
+                    <td class="notes-cell">${shift.notes || '-'}</td>
+                </tr>`;
                         });
                     }
                 });
-                csvContent += '\n'; // Add blank line between employees
+                
+                htmlContent += `
+            </tbody>
+        </table>
+    </div>`;
             });
             
-            // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/csv' });
+            htmlContent += `
+    <div class="footer">
+        <p><strong>Note:</strong> All time calculations use quarter-hour rounding (15min = 0.25h, 30min = 0.5h, 45min = 0.75h)</p>
+        <p>Break time (30 minutes) automatically deducted for shifts over 4 hours</p>
+        <p>Overtime calculated for work after 6:00 PM | Public holidays highlighted in pink</p>
+        <p>© ${today.getFullYear()} Shriajj Pty Ltd - Employee Roster Report | Generated from Staff Roster Management System</p>
+        <p>App designed and developed by Vrushali Hinge</p>
+    </div>
+</body>
+</html>`;
+            
+            // Create and download HTML file
+            const blob = new Blob([htmlContent], { type: 'text/html' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `employee-roster-${weekKey}.csv`;
+            a.download = `Employee_Roster_Report_${weekString.replace(/\s+/g, '_').replace(/,/g, '')}.html`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+            
+            console.log('📥 Employee roster report downloaded successfully');
         }
         
         function calculateShiftHours(startTime, endTime) {
