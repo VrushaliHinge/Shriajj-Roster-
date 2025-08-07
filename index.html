@@ -1449,6 +1449,8 @@
                     regular: 0, 
                     overtime: 0, 
                     publicHoliday: 0,
+                    sundayHours: 0,
+                    saturdayHours: 0,
                     annualLeave: leaveType === 'annual' ? (leaveHours || 8) : 0,
                     sickLeave: leaveType === 'sick' ? (leaveHours || 8) : 0,
                     publicHolidayLeave: leaveType === 'public' ? (leaveHours || 8) : 0
@@ -1464,6 +1466,8 @@
                     regular: 0, 
                     overtime: 0, 
                     publicHoliday: 0,
+                    sundayHours: 0,
+                    saturdayHours: 0,
                     annualLeave: 0,
                     sickLeave: 0,
                     publicHolidayLeave: 0
@@ -1480,14 +1484,17 @@
                     regular: 0, 
                     overtime: 0, 
                     publicHoliday: 0,
+                    sundayHours: 0,
+                    saturdayHours: 0,
                     annualLeave: 0,
                     sickLeave: 0,
                     publicHolidayLeave: 0
                 };
             }
             
-            // Deduct break time for shifts > 4 hours
-            let workingHours = totalHours > 4 ? totalHours - 0.5 : totalHours;
+            // Always deduct 30 minutes break time (applicable to all days)
+            let workingHours = totalHours > 0 ? totalHours - 0.5 : 0;
+            workingHours = Math.max(0, workingHours);
             
             // Initialize leave hours
             let annualLeaveHours = 0;
@@ -1505,53 +1512,71 @@
                 }
             }
             
-            // Handle public holiday work (gets special rate)
+            // Handle public holiday work (1st priority for 24hrs mandatory)
             if (isPublicHoliday && workingHours > 0) {
                 return {
                     total: workingHours,
                     regular: 0,
                     overtime: 0,
                     publicHoliday: workingHours,
+                    sundayHours: 0,
+                    saturdayHours: 0,
                     annualLeave: annualLeaveHours,
                     sickLeave: sickLeaveHours,
                     publicHolidayLeave: publicHolidayLeaveHours
                 };
             }
             
-            // Regular work day calculations
-            const isThursdayOrFriday = day.includes('Thu') || day.includes('Fri');
-            const overtimeStart = new Date(`2024-01-01 18:00`);
+            // Determine day type for 24hrs mandatory priority
+            const isSunday = day.includes('Sun');
+            const isSaturday = day.includes('Sat');
             
+            // Calculate overtime hours (after 6pm - different pay rate)
+            const overtimeStart = new Date(`2024-01-01 18:00`); // 6pm
             let regularHours = 0;
             let overtimeHours = 0;
+            let sundayHours = 0;
+            let saturdayHours = 0;
             
+            // Split hours between regular (before 6pm) and overtime (after 6pm)
             if (end.getTime() > overtimeStart.getTime()) {
-                const overtimeEnd = new Date(`2024-01-01 ${endTime}`);
-                overtimeHours = (overtimeEnd.getTime() - overtimeStart.getTime()) / (1000 * 60 * 60);
-                regularHours = workingHours - overtimeHours;
-                
-                // Deduct break time if it affects overtime calculation
-                if (totalHours > 4 && overtimeHours > 0) {
-                    if (regularHours > 8.5) {
-                        regularHours = 8;
-                        overtimeHours = workingHours - 8;
-                    }
+                // Shift extends past 6pm
+                if (start.getTime() >= overtimeStart.getTime()) {
+                    // All hours are overtime
+                    overtimeHours = workingHours;
+                } else {
+                    // Split between regular and overtime
+                    const regularEndTime = Math.min(end.getTime(), overtimeStart.getTime());
+                    const regularWorkTime = (regularEndTime - start.getTime()) / (1000 * 60 * 60);
+                    regularHours = Math.max(0, regularWorkTime - 0.5); // Deduct break from regular hours
+                    overtimeHours = Math.max(0, (end.getTime() - overtimeStart.getTime()) / (1000 * 60 * 60));
+                    workingHours = regularHours + overtimeHours;
                 }
             } else {
+                // All hours are regular (before 6pm)
                 regularHours = workingHours;
             }
             
-            // Thursday/Friday get 1.5x rate after 8 hours
-            if (isThursdayOrFriday && regularHours > 8) {
-                overtimeHours += regularHours - 8;
-                regularHours = 8;
+            // Apply weekend premium rates (24hrs mandatory priority)
+            if (isSunday) {
+                // Sunday is 2nd priority - all hours get Sunday rate
+                sundayHours = workingHours;
+                regularHours = 0;
+                overtimeHours = 0;
+            } else if (isSaturday) {
+                // Saturday is 3rd priority - all hours get Saturday rate
+                saturdayHours = workingHours;
+                regularHours = 0;
+                overtimeHours = 0;
             }
             
             return {
                 total: workingHours,
                 regular: Math.max(0, regularHours),
-                overtime: Math.max(0, overtimeHours),
+                overtime: Math.max(0, overtimeHours), // Overtime after 6pm (different pay rate)
                 publicHoliday: 0,
+                sundayHours: Math.max(0, sundayHours), // 2nd priority for 24hrs mandatory
+                saturdayHours: Math.max(0, saturdayHours), // 3rd priority for 24hrs mandatory
                 annualLeave: annualLeaveHours,
                 sickLeave: sickLeaveHours,
                 publicHolidayLeave: publicHolidayLeaveHours
@@ -2546,7 +2571,12 @@
             
             const start = new Date(`2024-01-01 ${startTime}`);
             const end = new Date(`2024-01-01 ${endTime}`);
-            const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            
+            // Always deduct 30 minutes break time (applicable to all days)
+            if (hours > 0) {
+                hours -= 0.5;
+            }
             
             return Math.max(0, Math.round(hours * 2) / 2); // Round to nearest 0.5
         }
@@ -2560,44 +2590,34 @@
             let regular = 0;
             let overtime = 0;
             let publicHoliday = 0;
+            let sundayHours = 0;
+            let saturdayHours = 0;
             let annualLeave = 0;
             let sickLeave = 0;
             let publicHolidayLeave = 0;
             let total = 0;
             
             dayShifts.forEach(shift => {
-                if (shift.leaveType) {
-                    switch(shift.leaveType) {
-                        case 'annual':
-                            annualLeave += shift.hours || 8;
-                            break;
-                        case 'sick':
-                            sickLeave += shift.hours || 8;
-                            break;
-                        case 'public':
-                            publicHolidayLeave += shift.hours || 8;
-                            break;
-                    }
-                } else {
-                    const shiftHours = shift.hours || calculateShiftHours(shift.scheduledStart, shift.scheduledEnd);
-                    total += shiftHours;
-                    
-                    // Check if it's a public holiday
-                    if (shift.isPublicHoliday) {
-                        publicHoliday += shiftHours;
-                    } else if (day.includes('Sun') || day.includes('Sat')) {
-                        // Weekend hours are already categorized in getWeeklySummary
-                        regular += shiftHours;
-                    } else {
-                        // Regular weekday - check for overtime
-                        if (shiftHours > 8) {
-                            regular += 8;
-                            overtime += shiftHours - 8;
-                        } else {
-                            regular += shiftHours;
-                        }
-                    }
-                }
+                const hours = calculateHours(
+                    shift.scheduledStart,
+                    shift.scheduledEnd,
+                    shift.actualStart,
+                    shift.actualEnd,
+                    day,
+                    shift.leaveType,
+                    shift.leaveHours,
+                    shift.isPublicHoliday
+                );
+                
+                regular += hours.regular;
+                overtime += hours.overtime; // After 6pm
+                publicHoliday += hours.publicHoliday; // 1st priority
+                sundayHours += hours.sundayHours; // 2nd priority  
+                saturdayHours += hours.saturdayHours; // 3rd priority
+                annualLeave += hours.annualLeave;
+                sickLeave += hours.sickLeave;
+                publicHolidayLeave += hours.publicHolidayLeave;
+                total += hours.total;
             });
             
             // Add leave hours to total
@@ -2605,8 +2625,10 @@
             
             return {
                 regular,
-                overtime,
-                publicHoliday,
+                overtime, // After 6pm (different pay rate)
+                publicHoliday, // 1st priority for 24hrs mandatory
+                sundayHours, // 2nd priority for 24hrs mandatory
+                saturdayHours, // 3rd priority for 24hrs mandatory
                 annualLeave,
                 sickLeave,
                 publicHolidayLeave,
@@ -2621,10 +2643,10 @@
             const weekDays = getCurrentWeekDates();
             
             let mondayToFridayRegular = 0;
-            let overtimeTotal = 0;
-            let saturdayTotal = 0;
-            let sundayTotal = 0;
-            let publicHolidayTotal = 0;
+            let overtimeTotal = 0; // After 6pm (different pay rate)
+            let saturdayTotal = 0; // 3rd priority for 24hrs mandatory
+            let sundayTotal = 0; // 2nd priority for 24hrs mandatory  
+            let publicHolidayTotal = 0; // 1st priority for 24hrs mandatory
             let annualLeaveTotal = 0;
             let sickLeaveTotal = 0;
             let publicHolidayLeaveTotal = 0;
@@ -2633,22 +2655,27 @@
             weekDays.forEach(day => {
                 const dayHours = getDailyHours(employee, day);
                 totalHours += dayHours.total;
-                publicHolidayTotal += dayHours.publicHoliday;
+                
+                // Collect different hour types based on priority rules
+                mondayToFridayRegular += dayHours.regular;
+                overtimeTotal += dayHours.overtime; // After 6pm
+                saturdayTotal += dayHours.saturdayHours; // Saturday hours
+                sundayTotal += dayHours.sundayHours; // Sunday hours  
+                publicHolidayTotal += dayHours.publicHoliday; // Public holiday
+                
+                // Leave hours
                 annualLeaveTotal += dayHours.annualLeave;
                 sickLeaveTotal += dayHours.sickLeave;
                 publicHolidayLeaveTotal += dayHours.publicHolidayLeave;
-                
-                if (day.includes('Sat')) {
-                    saturdayTotal += dayHours.total;
-                } else if (day.includes('Sun')) {
-                    sundayTotal += dayHours.total;
-                } else {
-                    mondayToFridayRegular += dayHours.regular;
-                    overtimeTotal += dayHours.overtime;
-                }
             });
 
-            const mandatoryCategories = sundayTotal + saturdayTotal + overtimeTotal + publicHolidayTotal;
+            // 24hrs mandatory calculation with priority:
+            // 1st priority: Public holidays
+            // 2nd priority: Sunday  
+            // 3rd priority: Saturday
+            // 4th priority: Overtime (after 6pm)
+            // 5th priority: Regular hours (fill to reach 24hrs)
+            const mandatoryCategories = publicHolidayTotal + sundayTotal + saturdayTotal + overtimeTotal;
             const mandatoryFromRegular = Math.min(mondayToFridayRegular, Math.max(0, 24 - mandatoryCategories));
             const totalMandatory = mandatoryCategories + mandatoryFromRegular;
             const remainingRegularHours = Math.max(0, mondayToFridayRegular - mandatoryFromRegular);
@@ -2656,10 +2683,10 @@
 
             return {
                 mondayToFridayRegular,
-                overtime: overtimeTotal,
-                saturday: saturdayTotal,
-                sunday: sundayTotal,
-                publicHoliday: publicHolidayTotal,
+                overtime: overtimeTotal, // After 6pm (different pay rate)
+                saturday: saturdayTotal, // 3rd priority for 24hrs mandatory
+                sunday: sundayTotal, // 2nd priority for 24hrs mandatory
+                publicHoliday: publicHolidayTotal, // 1st priority for 24hrs mandatory
                 annualLeave: annualLeaveTotal,
                 sickLeave: sickLeaveTotal,
                 publicHolidayLeave: publicHolidayLeaveTotal,
