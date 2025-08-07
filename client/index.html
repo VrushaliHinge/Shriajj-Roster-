@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Roster Management System - Shriajj Pty Ltd</title>
+    <meta name="description" content="Professional staff roster management system for Shriajj Pty Ltd. Manage employee schedules, locations, and real-time synchronization across multiple devices.">
+    
+    <!-- Open Graph tags -->
+    <meta property="og:title" content="Staff Roster Management System - Shriajj Pty Ltd">
+    <meta property="og:description" content="Comprehensive staff scheduling solution with real-time sync and multi-location support">
+    <meta property="og:type" content="website">
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <style>
+        :root {
+            --background: hsl(0, 0%, 100%);
+            --foreground: hsl(222.2, 84%, 4.9%);
+            --card: hsl(0, 0%, 100%);
+            --card-foreground: hsl(222.2, 84%, 4.9%);
+            --popover: hsl(0, 0%, 100%);
+            --popover-foreground: hsl(222.2, 84%, 4.9%);
+            --primary: hsl(221.2, 83.2%, 53.3%);
+            --primary-foreground: hsl(210, 40%, 98%);
+            --secondary: hsl(210, 40%, 96%);
+            --secondary-foreground: hsl(222.2, 84%, 4.9%);
+            --muted: hsl(210, 40%, 96%);
+            --muted-foreground: hsl(215.4, 16.3%, 46.9%);
+            --accent: hsl(210, 40%, 96%);
+            --accent-foreground: hsl(222.2, 84%, 4.9%);
+            --destructive: hsl(0, 84.2%, 60.2%);
+            --destructive-foreground: hsl(210, 40%, 98%);
+            --border: hsl(214.3, 31.8%, 91.4%);
+            --input: hsl(214.3, 31.8%, 91.4%);
+            --ring: hsl(221.2, 83.2%, 53.3%);
+            --success: hsl(142.1, 76.2%, 36.3%);
+            --warning: hsl(38, 92%, 50%);
+            --error: hsl(0, 84.2%, 60.2%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: var(--background);
+            color: var(--foreground);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .min-h-screen {
+            min-height: 100vh;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .grid {
+            display: grid;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .space-x-1 > * + * {
+            margin-left: 0.25rem;
+        }
+
+        .space-x-2 > * + * {
+            margin-left: 0.5rem;
+        }
+
+        .space-x-4 > * + * {
+            margin-left: 1rem;
+        }
+
+        .space-y-4 > * + * {
+            margin-top: 1rem;
+        }
+
+        .space-y-6 > * + * {
+            margin-top: 1.5rem;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .max-w-md {
+            max-width: 28rem;
+        }
+
+        .max-w-7xl {
+            max-width: 80rem;
+        }
+
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .px-4 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .px-6 {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+
+        .py-2 {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .py-4 {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .py-8 {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        .p-3 {
+            padding: 0.75rem;
+        }
+
+        .p-8 {
+            padding: 2rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+        }
+
+        .text-xl {
+            font-size: 1.25rem;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem;
+        }
+
+        .font-medium {
+            font-weight: 500;
+        }
+
+        .font-semibold {
+            font-weight: 600;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-white {
+            color: white;
+        }
+
+        .text-gray-500 {
+            color: hsl(220, 8.9%, 46.1%);
+        }
+
+        .text-gray-600 {
+            color: hsl(215.4, 16.3%, 46.9%);
+        }
+
+        .text-gray-700 {
+            color: hsl(215.3, 19.3%, 34.5%);
+        }
+
+        .text-gray-900 {
+            color: hsl(222.2, 84%, 4.9%);
+        }
+
+        .text-primary {
+            color: var(--primary);
+        }
+
+        .text-success {
+            color: var(--success);
+        }
+
+        .text-error {
+            color: var(--error);
+        }
+
+        .bg-white {
+            background-color: white;
+        }
+
+        .bg-gray-50 {
+            background-color: hsl(210, 40%, 98%);
+        }
+
+        .bg-primary {
+            background-color: var(--primary);
+        }
+
+        .bg-success {
+            background-color: var(--success);
+        }
+
+        .bg-error {
+            background-color: var(--error);
+        }
+
+        .rounded-lg {
+            border-radius: 0.5rem;
+        }
+
+        .rounded-xl {
+            border-radius: 0.75rem;
+        }
+
+        .rounded-full {
+            border-radius: 9999px;
+        }
+
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        .shadow-sm {
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .border {
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--border);
+        }
+
+        .border-b {
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            border-bottom-color: var(--border);
+        }
+
+        .border-gray-200 {
+            border-color: hsl(220, 13%, 91%);
+        }
+
+        .border-gray-300 {
+            border-color: hsl(212, 12%, 84%);
+        }
+
+        .border-transparent {
+            border-color: transparent;
+        }
+
+        .border-primary {
+            border-color: var(--primary);
+        }
+
+        .border-b-2 {
+            border-bottom-width: 2px;
+        }
+
+        /* Form Elements */
+        input, select, textarea {
+            appearance: none;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px hsl(221.2, 83.2%, 53.3%, 0.1);
+        }
+
+        /* Buttons */
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem 1rem;
+        }
+
+        .btn-primary:hover {
+            background-color: hsl(221.2, 83.2%, 48.3%);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+        }
+
+        .btn-secondary:hover {
+            background-color: hsl(210, 40%, 94%);
+        }
+
+        .btn-ghost {
+            background-color: transparent;
+            color: var(--foreground);
+            padding: 0.5rem;
+        }
+
+        .btn-ghost:hover {
+            background-color: var(--muted);
+        }
+
+        /* Grid Layout */
+        .roster-grid {
+            display: grid;
+            grid-template-columns: 200px repeat(7, 1fr);
+            gap: 1px;
+            background-color: var(--border);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .roster-cell {
+            background-color: white;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .roster-cell.header {
+            background-color: var(--muted);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .roster-cell.employee-name {
+            background-color: var(--card);
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 1rem;
+        }
+
+        .shift-card {
+            background-color: hsl(221.2, 83.2%, 95%);
+            border: 1px solid var(--primary);
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            margin: 0.125rem 0;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            width: 100%;
+            text-align: center;
+        }
+
+        .shift-card:hover {
+            background-color: hsl(221.2, 83.2%, 90%);
+        }
+
+        .shift-card.selected {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .shift-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .shift-form input {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            background-color: white;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-button {
+            padding: 1rem;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: var(--muted-foreground);
+            transition: all 0.15s ease-in-out;
+            background: none;
+        }
+
+        .tab-button.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .tab-button:hover {
+            color: var(--foreground);
+        }
+
+        /* Connection Status */
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-online {
+            background-color: var(--success);
+        }
+
+        .status-offline {
+            background-color: var(--error);
+        }
+
+        .status-syncing {
+            background-color: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .roster-grid {
+                grid-template-columns: 120px repeat(7, 60px);
+                font-size: 0.75rem;
+                overflow-x: auto;
+            }
+            
+            .roster-cell {
+                min-height: 60px;
+                padding: 0.25rem;
+            }
+
+            .roster-cell.employee-name {
+                padding: 0.5rem;
+            }
+
+            .shift-card {
+                font-size: 0.625rem;
+                padding: 0.25rem;
+            }
+
+            .max-w-7xl {
+                padding: 0 1rem;
+            }
+
+            .space-x-4 > * + * {
+                margin-left: 0.5rem;
+            }
+
+            .flex-col-mobile {
+                flex-direction: column;
+            }
+
+            .space-y-mobile > * + * {
+                margin-top: 0.5rem;
+            }
+        }
+
+        /* Loading States */
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Utility Classes */
+        .w-4 { width: 1rem; }
+        .h-4 { height: 1rem; }
+        .w-5 { width: 1.25rem; }
+        .h-5 { height: 1.25rem; }
+        .w-6 { width: 1.5rem; }
+        .h-6 { height: 1.5rem; }
+        .w-8 { width: 2rem; }
+        .h-8 { height: 2rem; }
+
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .ml-4 { margin-left: 1rem; }
+
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .inset-y-0 { top: 0; bottom: 0; }
+        .right-0 { right: 0; }
+        .left-0 { left: 0; }
+        .pr-3 { padding-right: 0.75rem; }
+        .pl-3 { padding-left: 0.75rem; }
+        .pl-10 { padding-left: 2.5rem; }
+
+        .overflow-hidden { overflow: hidden; }
+        .overflow-x-auto { overflow-x: auto; }
+
+        .cursor-pointer { cursor: pointer; }
+        .select-none { user-select: none; }
+
+        .transition-all { transition: all 0.15s ease-in-out; }
+        .transition-colors { transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+        <div class="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
+            <div class="text-center">
+                <div class="flex justify-center mb-4">
+                    <div class="p-3 bg-primary rounded-full">
+                        <i data-lucide="building" class="w-8 h-8 text-white"></i>
+                    </div>
+                </div>
+                <h2 id="companyName" class="text-3xl font-bold text-gray-900">Shriajj Pty Ltd</h2>
+                <p id="systemTitle" class="text-gray-600 mt-2">Staff Roster Management System</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <div class="mt-2 relative">
+                            <input 
+                                id="username" 
+                                name="username" 
+                                type="text" 
+                                required 
+                                class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
+                                placeholder="Enter username"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <div class="mt-2 relative">
+                            <input 
+                                id="password" 
+                                name="password" 
+                                type="password" 
+                                required 
+                                class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
+                                placeholder="Enter password"
+                            >
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                <i data-lucide="lock" class="w-4 h-4 text-gray-500"></i>
+                            </div>
+                            <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                <i data-lucide="eye-off" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input 
+                            id="rememberPassword" 
+                            name="rememberPassword" 
+                            type="checkbox" 
+                            class="w-4 h-4"
+                        >
+                        <label for="rememberPassword" class="ml-2 text-sm text-gray-700">
+                            Remember password
+                        </label>
+                    </div>
+                </div>
+
+                <div id="loginError" class="hidden text-error text-sm text-center p-3 bg-red-50 rounded-lg">
+                    <!-- Error message will appear here -->
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="w-full btn-primary flex items-center justify-center py-3 text-white font-medium rounded-lg transition-colors"
+                >
+                    <i data-lucide="log-in" class="w-4 h-4 mr-2"></i>
+                    Sign In
+                </button>
+
+                <div class="text-center">
+                    <p class="text-sm text-gray-500">
+                        Developed by <span id="developer" class="font-medium">Vrushali Hinge</span>
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden min-h-screen bg-gray-50">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="p-2 bg-primary rounded-lg">
+                                <i data-lucide="building" class="w-5 h-5 text-white"></i>
+                            </div>
+                            <div>
+                                <h1 id="headerCompanyName" class="text-lg font-semibold text-gray-900">Shriajj Pty Ltd</h1>
+                                <p id="headerSystemTitle" class="text-sm text-gray-500">Staff Roster Management System</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <!-- Connection Status -->
+                        <div id="connectionStatus" class="flex items-center space-x-2">
+                            <div class="status-indicator status-online"></div>
+                            <span id="connectionText" class="text-sm text-gray-600">Online</span>
+                        </div>
+
+                        <!-- Sync Status -->
+                        <div id="syncStatus" class="flex items-center space-x-1 text-sm text-gray-600">
+                            <i data-lucide="check-circle" class="w-4 h-4 text-success"></i>
+                            <span id="syncText">Synced</span>
+                        </div>
+
+                        <!-- User Menu -->
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-700">Welcome, <span id="currentUser" class="font-medium">Admin</span></span>
+                            <button id="logoutBtn" class="btn-ghost p-2">
+                                <i data-lucide="log-out" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex space-x-8">
+                    <button class="tab-button active" data-tab="roster">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="calendar" class="w-4 h-4"></i>
+                            <span>Roster</span>
+                        </div>
+                    </button>
+                    <button class="tab-button" data-tab="employees">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="users" class="w-4 h-4"></i>
+                            <span>Employees</span>
+                        </div>
+                    </button>
+                    <button class="tab-button" data-tab="locations">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="map-pin" class="w-4 h-4"></i>
+                            <span>Locations</span>
+                        </div>
+                    </button>
+                    <button class="tab-button" data-tab="settings">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="settings" class="w-4 h-4"></i>
+                            <span>Settings</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Roster Tab -->
+            <div id="rosterTab" class="tab-content">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <!-- Roster Header -->
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="flex flex-col space-y-4">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">Weekly Roster</h2>
+                                <p class="text-sm text-gray-600">Manage staff schedules and assignments</p>
+                            </div>
+                            
+                            <div class="flex flex-col space-y-2 md:flex-row md:items-center md:justify-between md:space-y-0">
+                                <!-- Week Navigation -->
+                                <div class="flex items-center space-x-2">
+                                    <button id="prevWeek" class="btn-ghost p-2">
+                                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                    </button>
+                                    <div class="text-sm font-medium text-gray-900 min-w-[200px] text-center">
+                                        <span id="currentWeekDisplay">Aug 3 - Aug 9, 2025</span>
+                                    </div>
+                                    <button id="nextWeek" class="btn-ghost p-2">
+                                        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex items-center space-x-2">
+                                    <button id="editModeBtn" class="btn-secondary">
+                                        <i data-lucide="edit-2" class="w-4 h-4 mr-2"></i>
+                                        Edit Mode
+                                    </button>
+                                    <button id="saveRosterBtn" class="btn-primary hidden">
+                                        <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                                        Save
+                                    </button>
+                                    <button id="exportRosterBtn" class="btn-secondary">
+                                        <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                                        Export
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roster Grid -->
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <div id="rosterGrid" class="roster-grid">
+                                <!-- Grid content will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employees Tab -->
+            <div id="employeesTab" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">Employee Management</h2>
+                                <p class="text-sm text-gray-600">Add, edit, and manage staff members</p>
+                            </div>
+                            <button id="addEmployeeBtn" class="btn-primary">
+                                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                                Add Employee
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div id="employeesList" class="space-y-4">
+                            <!-- Employee list will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Locations Tab -->
+            <div id="locationsTab" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">Location Management</h2>
+                                <p class="text-sm text-gray-600">Manage business locations and settings</p>
+                            </div>
+                            <button id="addLocationBtn" class="btn-primary">
+                                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                                Add Location
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <div id="locationsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <!-- Locations will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settingsTab" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Database Configuration -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">Database Configuration</h3>
+                            <p class="text-sm text-gray-600">Real-time database settings and connection status</p>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">Supabase</h4>
+                                    <p class="text-sm text-gray-600">Real-time database with live sync</p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div id="dbStatusIndicator" class="status-indicator status-online"></div>
+                                    <span id="dbStatusText" class="text-sm text-gray-600">Connected</span>
+                                </div>
+                            </div>
+
+                            <button id="testConnectionBtn" class="w-full btn-secondary">
+                                <i data-lucide="wifi" class="w-4 h-4 mr-2"></i>
+                                Test Connection
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- App Configuration -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">App Configuration</h3>
+                            <p class="text-sm text-gray-600">Customize application settings</p>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                                <input 
+                                    id="configCompanyName"
+                                    type="text" 
+                                    class="w-full"
+                                    value="Shriajj Pty Ltd"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">System Title</label>
+                                <input 
+                                    id="configSystemTitle"
+                                    type="text" 
+                                    class="w-full"
+                                    value="Staff Roster Management System"
+                                >
+                            </div>
+
+                            <button id="saveConfigBtn" class="w-full btn-primary">
+                                <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                                Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Shift Modal -->
+    <div id="shiftModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Edit Shift</h3>
+                <button id="closeShiftModal" class="btn-ghost p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="shiftForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Employee</label>
+                    <select id="shiftEmployee" class="w-full">
+                        <option value="">Select Employee</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                    <select id="shiftLocation" class="w-full">
+                        <option value="">Select Location</option>
+                    </select>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                        <input type="time" id="shiftStartTime" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+                        <input type="time" id="shiftEndTime" class="w-full">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Leave Type</label>
+                    <select id="shiftLeaveType" class="w-full">
+                        <option value="">No Leave</option>
+                        <option value="annual">Annual Leave</option>
+                        <option value="sick">Sick Leave</option>
+                        <option value="public">Public Holiday</option>
+                    </select>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="deleteShiftBtn" class="btn-secondary text-error">
+                        <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                        Delete
+                    </button>
+                    <button type="button" id="cancelShiftBtn" class="btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        Save Shift
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Employee Modal -->
+    <div id="employeeModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="employeeModalTitle" class="text-lg font-medium text-gray-900">Add Employee</h3>
+                <button id="closeEmployeeModal" class="btn-ghost p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="employeeForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                    <input type="text" id="employeeName" class="w-full" required>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="cancelEmployeeBtn" class="btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <span id="employeeSubmitText">Add Employee</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Location Modal -->
+    <div id="locationModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="locationModalTitle" class="text-lg font-medium text-gray-900">Add Location</h3>
+                <button id="closeLocationModal" class="btn-ghost p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="locationForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                    <input type="text" id="locationName" class="w-full" required>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="cancelLocationBtn" class="btn-secondary">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <span id="locationSubmitText">Add Location</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/src/main.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Roster Management System - Shriajj Pty Ltd</title>
+    <meta name="description" content="Professional staff roster management system for Shriajj Pty Ltd. Manage employee schedules, locations, and real-time synchronization across multiple devices.">
+    
+    <!-- Open Graph tags -->
+    <meta property="og:title" content="Staff Roster Management System - Shriajj Pty Ltd">
+    <meta property="og:description" content="Comprehensive staff scheduling solution with real-time sync and multi-location support">
+    <meta property="og:type" content="website">
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <style>
+        :root {
+            --background: hsl(0, 0%, 100%);
+            --foreground: hsl(222.2, 84%, 4.9%);
+            --card: hsl(0, 0%, 100%);
+            --card-foreground: hsl(222.2, 84%, 4.9%);
+            --popover: hsl(0, 0%, 100%);
+            --popover-foreground: hsl(222.2, 84%, 4.9%);
+            --primary: hsl(221.2, 83.2%, 53.3%);
+            --primary-foreground: hsl(210, 40%, 98%);
+            --secondary: hsl(210, 40%, 96%);
+            --secondary-foreground: hsl(222.2, 84%, 4.9%);
+            --muted: hsl(210, 40%, 96%);
+            --muted-foreground: hsl(215.4, 16.3%, 46.9%);
+            --accent: hsl(210, 40%, 96%);
+            --accent-foreground: hsl(222.2, 84%, 4.9%);
+            --destructive: hsl(0, 84.2%, 60.2%);
+            --destructive-foreground: hsl(210, 40%, 98%);
+            --border: hsl(214.3, 31.8%, 91.4%);
+            --input: hsl(214.3, 31.8%, 91.4%);
+            --ring: hsl(221.2, 83.2%, 53.3%);
+            --success: hsl(142.1, 76.2%, 36.3%);
+            --warning: hsl(38, 92%, 50%);
+            --error: hsl(0, 84.2%, 60.2%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: var(--background);
+            color: var(--foreground);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .min-h-screen {
+            min-height: 100vh;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .grid {
+            display: grid;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .space-x-1 > * + * {
+            margin-left: 0.25rem;
+        }
+
+        .space-x-2 > * + * {
+            margin-left: 0.5rem;
+        }
+
+        .space-x-4 > * + * {
+            margin-left: 1rem;
+        }
+
+        .space-y-4 > * + * {
+            margin-top: 1rem;
+        }
+
+        .space-y-6 > * + * {
+            margin-top: 1.5rem;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .max-w-md {
+            max-width: 28rem;
+        }
+
+        .max-w-7xl {
+            max-width: 80rem;
+        }
+
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .px-4 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .px-6 {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+
+        .py-2 {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .py-4 {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .py-8 {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        .p-3 {
+            padding: 0.75rem;
+        }
+
+        .p-8 {
+            padding: 2rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+        }
+
+        .text-xl {
+            font-size: 1.25rem;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem;
+        }
+
+        .font-medium {
+            font-weight: 500;
+        }
+
+        .font-semibold {
+            font-weight: 600;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-white {
+            color: white;
+        }
+
+        .text-gray-500 {
+            color: hsl(220, 8.9%, 46.1%);
+        }
+
+        .text-gray-600 {
+            color: hsl(215.4, 16.3%, 46.9%);
+        }
+
+        .text-gray-700 {
+            color: hsl(215.3, 19.3%, 34.5%);
+        }
+
+        .text-gray-900 {
+            color: hsl(222.2, 84%, 4.9%);
+        }
+
+        .text-primary {
+            color: var(--primary);
+        }
+
+        .text-success {
+            color: var(--success);
+        }
+
+        .text-error {
+            color: var(--error);
+        }
+
+        .bg-white {
+            background-color: white;
+        }
+
+        .bg-gray-50 {
+            background-color: hsl(210, 40%, 98%);
+        }
+
+        .bg-primary {
+            background-color: var(--primary);
+        }
+
+        .bg-success {
+            background-color: var(--success);
+        }
+
+        .bg-error {
+            background-color: var(--error);
+        }
+
+        .rounded-lg {
+            border-radius: 0.5rem;
+        }
+
+        .rounded-xl {
+            border-radius: 0.75rem;
+        }
+
+        .rounded-full {
+            border-radius: 9999px;
+        }
+
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        .shadow-sm {
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .border {
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--border);
+        }
+
+        .border-b {
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            border-bottom-color: var(--border);
+        }
+
+        .border-gray-200 {
+            border-color: hsl(220, 13%, 91%);
+        }
+
+        .border-gray-300 {
+            border-color: hsl(212, 12%, 84%);
+        }
+
+        .border-transparent {
+            border-color: transparent;
+        }
+
+        .border-primary {
+            border-color: var(--primary);
+        }
+
+        .border-b-2 {
+            border-bottom-width: 2px;
+        }
+
+        /* Form Elements */
+        input, select, textarea {
+            appearance: none;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px hsl(221.2, 83.2%, 53.3%, 0.1);
+        }
+
+        /* Buttons */
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem 1rem;
+        }
+
+        .btn-primary:hover {
+            background-color: hsl(221.2, 83.2%, 48.3%);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+        }
+
+        .btn-secondary:hover {
+            background-color: hsl(210, 40%, 94%);
+        }
+
+        .btn-ghost {
+            background-color: transparent;
+            color: var(--foreground);
+            padding: 0.5rem;
+        }
+
+        .btn-ghost:hover {
+            background-color: var(--muted);
+        }
+
+        /* Grid Layout */
+        .roster-grid {
+            display: grid;
+            grid-template-columns: 200px repeat(7, 1fr);
+            gap: 1px;
+            background-color: var(--border);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .roster-cell {
+            background-color: white;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .roster-cell.header {
+            background-color: var(--muted);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .roster-cell.employee-name {
+            background-color: var(--card);
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 1rem;
+        }
+
+        .shift-card {
+            background-color: hsl(221.2, 83.2%, 95%);
+            border: 1px solid var(--primary);
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            margin: 0.125rem 0;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            width: 100%;
+            text-align: center;
+        }
+
+        .shift-card:hover {
+            background-color: hsl(221.2, 83.2%, 90%);
+        }
+
+        .shift-card.selected {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .shift-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .shift-form input {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            background-color: white;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-button {
+            padding: 1rem;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: var(--muted-foreground);
+            transition: all 0.15s ease-in-out;
+            background: none;
+        }
+
+        .tab-button.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .tab-button:hover {
+            color: var(--foreground);
+        }
+
+        /* Connection Status */
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-online {
+            background-color: var(--success);
+        }
+
+        .status-offline {
+            background-color: var(--error);
+        }
+
+        .status-syncing {
+            background-color: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .roster-grid {
+                grid-template-columns: 120px repeat(7, 60px);
+                font-size: 0.75rem;
+                overflow-x: auto;
+            }
+            
+            .roster-cell {
+                min-height: 60px;
+                padding: 0.25rem;
+            }
+
+            .roster-cell.employee-name {
+                padding: 0.5rem;
+            }
+
+            .shift-card {
+                font-size: 0.625rem;
+                padding: 0.25rem;
+            }
+
+            .max-w-7xl {
+                padding: 0 1rem;
+            }
+
+            .space-x-4 > * + * {
+                margin-left: 0.5rem;
+            }
+
+            .flex-col-mobile {
+                flex-direction: column;
+            }
+
+            .space-y-mobile > * + * {
+                margin-top: 0.5rem;
+            }
+        }
+
+        /* Loading States */
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Utility Classes */
+        .w-4 { width: 1rem; }
+        .h-4 { height: 1rem; }
+        .w-5 { width: 1.25rem; }
+        .h-5 { height: 1.25rem; }
+        .w-6 { width: 1.5rem; }
+        .h-6 { height: 1.5rem; }
+        .w-8 { width: 2rem; }
+        .h-8 { height: 2rem; }
+
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .ml-4 { margin-left: 1rem; }
+
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .inset-y-0 { top: 0; bottom: 0; }
+        .right-0 { right: 0; }
+        .left-0 { left: 0; }
+        .pr-3 { padding-right: 0.75rem; }
+        .pl-3 { padding-left: 0.75rem; }
+        .pl-10 { padding-left: 2.5rem; }
+
+        .overflow-hidden { overflow: hidden; }
+        .overflow-x-auto { overflow-x: auto; }
+
+        .cursor-pointer { cursor: pointer; }
+        .select-none { user-select: none; }
+
+        .transition-all { transition: all 0.15s ease-in-out; }
+        .transition-colors { transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+        <div class="max-w-md w-full space-y-6 p-8 bg-white rounded-xl shadow-lg">
+            <div class="text-center">
+                <div class="flex justify-center mb-4">
+                    <div class="p-3 bg-primary rounded-full">
+                        <i data-lucide="building" class="w-8 h-8 text-white"></i>
+                    </div>
+                </div>
+                <h2 id="companyName" class="text-3xl font-bold text-gray-900">Shriajj Pty Ltd</h2>
+                <p id="systemTitle" class="text-gray-600 mt-2">Staff Roster Management System</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <div class="mt-2 relative">
+                            <input 
+                                id="username" 
+                                name="username" 
+                                type="text" 
+                                required 
+                                class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg"
+                                placeholder="Enter your username"
+                            >
+                            <i data-lucide="user" class="w-5 h-5 text-gray-400 absolute left-3 inset-y-0" style="top: 50%; transform: translateY(-50%);"></i>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <div class="mt-2 relative">
+                            <input 
+                                id="password" 
+                                name="password" 
+                                type="password" 
+                                required 
+                                class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg"
+                                placeholder="Enter your password"
+                            >
+                            <i data-lucide="lock" class="w-5 h-5 text-gray-400 absolute left-3 inset-y-0" style="top: 50%; transform: translateY(-50%);"></i>
+                            <button 
+                                type="button" 
+                                id="togglePassword"
+                                class="absolute right-3 inset-y-0 text-gray-400 hover:text-gray-600"
+                                style="top: 50%; transform: translateY(-50%);"
+                            >
+                                <i data-lucide="eye-off" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input 
+                            id="rememberPassword" 
+                            name="rememberPassword" 
+                            type="checkbox" 
+                            class="h-4 w-4 text-primary border-gray-300 rounded"
+                        >
+                        <label for="rememberPassword" class="ml-2 block text-sm text-gray-700">
+                            Remember password
+                        </label>
+                    </div>
+                </div>
+
+                <div id="loginError" class="hidden text-error text-sm"></div>
+
+                <button 
+                    type="submit" 
+                    class="w-full btn-primary"
+                >
+                    Sign In
+                </button>
+            </form>
+
+            <div class="text-center">
+                <div class="flex items-center justify-center space-x-2">
+                    <div id="connectionStatus" class="status-indicator status-offline"></div>
+                    <span id="connectionText" class="text-sm text-gray-500">Connecting...</span>
+                </div>
+            </div>
+
+            <div class="text-center text-xs text-gray-500">
+                <p>Developed by Vrushali Hinge</p>
+                <p>© 2025 Shriajj Pty Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-2 bg-primary rounded-lg">
+                            <i data-lucide="calendar" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-semibold text-gray-900">Staff Roster Management</h1>
+                            <p class="text-sm text-gray-600">Shriajj Pty Ltd</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div id="syncStatus" class="status-indicator status-syncing"></div>
+                            <span id="syncText" class="text-sm text-gray-600">Syncing...</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                            <span id="currentUserDisplay" class="text-sm text-gray-700"></span>
+                        </div>
+                        
+                        <button id="logoutBtn" class="btn-ghost">
+                            <i data-lucide="log-out" class="w-4 h-4 mr-2"></i>
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tab-nav">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex space-x-8">
+                    <button data-tab="roster" class="tab-button active">
+                        <i data-lucide="calendar" class="w-4 h-4 mr-2"></i>
+                        Roster
+                    </button>
+                    <button data-tab="employees" class="tab-button">
+                        <i data-lucide="users" class="w-4 h-4 mr-2"></i>
+                        Employees
+                    </button>
+                    <button data-tab="locations" class="tab-button">
+                        <i data-lucide="building" class="w-4 h-4 mr-2"></i>
+                        Locations
+                    </button>
+                    <button data-tab="reports" class="tab-button">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 mr-2"></i>
+                        Reports
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Roster Tab -->
+            <div id="rosterTab" class="tab-content">
+                <div class="space-y-6">
+                    <!-- Week Navigation -->
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-4">
+                            <button id="prevWeek" class="btn-ghost">
+                                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                            </button>
+                            <h2 id="currentWeekDisplay" class="text-lg font-semibold">Aug 3-9, 2025</h2>
+                            <button id="nextWeek" class="btn-ghost">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button id="editModeBtn" class="btn-secondary">
+                                <i data-lucide="edit" class="w-4 h-4 mr-2"></i>
+                                Edit
+                            </button>
+                            <button id="saveModeBtn" class="btn-primary hidden">
+                                <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                                Save
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Roster Grid -->
+                    <div class="overflow-x-auto">
+                        <div id="rosterGrid" class="roster-grid">
+                            <!-- Grid will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employees Tab -->
+            <div id="employeesTab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold">Employee Management</h2>
+                        <button id="addEmployeeBtn" class="btn-primary">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                            Add Employee
+                        </button>
+                    </div>
+                    
+                    <div id="employeesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Employee cards will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Locations Tab -->
+            <div id="locationsTab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold">Location Management</h2>
+                        <button id="addLocationBtn" class="btn-primary">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                            Add Location
+                        </button>
+                    </div>
+                    
+                    <div id="locationsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Location cards will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="reportsTab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <h2 class="text-lg font-semibold">Weekly Reports</h2>
+                    
+                    <div id="reportsContent" class="space-y-4">
+                        <!-- Reports will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Shift Edit Modal -->
+    <div id="shiftModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">Edit Shift</h3>
+                    <button id="closeModal" class="btn-ghost">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                
+                <form id="shiftForm" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Employee</label>
+                            <select id="shiftEmployee" class="w-full mt-1">
+                                <!-- Options populated by JavaScript -->
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Location</label>
+                            <select id="shiftLocation" class="w-full mt-1">
+                                <!-- Options populated by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Time</label>
+                            <input id="shiftStartTime" type="time" class="w-full mt-1" value="09:00">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">End Time</label>
+                            <input id="shiftEndTime" type="time" class="w-full mt-1" value="17:00">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Leave Type</label>
+                        <select id="shiftLeaveType" class="w-full mt-1">
+                            <option value="">No Leave</option>
+                            <option value="annual">Annual Leave</option>
+                            <option value="sick">Sick Leave</option>
+                            <option value="public">Public Holiday</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="shiftNotes" rows="3" class="w-full mt-1" placeholder="Additional notes..."></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" id="deleteShift" class="btn-secondary text-error">
+                            <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                            Delete
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                            Save Shift
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Application State Management
+        let appState = {
+            // Authentication
+            isLoggedIn: false,
+            currentUser: '',
+            
+            // UI State
+            activeTab: 'roster',
+            editMode: false,
+            currentWeekStart: new Date(2025, 7, 3), // Aug 3, 2025
+            showPassword: false,
+            rememberPassword: false,
+            
+            // Network State
+            isOnline: navigator.onLine,
+            syncStatus: 'synced', // 'synced', 'syncing', 'offline'
+            
+            // Configuration
+            appConfig: {
+                companyName: "Shriajj Pty Ltd",
+                systemTitle: "Staff Roster Management System",
+                locationId: "main",
+                timezone: "Australia/Melbourne",
+                developer: "Vrushali Hinge",
+                users: {
+                    admin: 'shriajj2025',
+                    manager: 'manager123',
+                    supervisor: 'super2025'
+                }
+            },
+            
+            // Data
+            employees: ['Bhanush', 'Girish', 'Aravind', 'Vansh', 'Kashish', 'Sonam', 'Tejal', 'Anshul', 'Matt', 'Aswin'],
+            locations: ['Caroline Springs', 'Werribee Plaza', 'Point Cook', 'Geelong', 'Woodgrove'],
+            allRosterData: {},
+            publicHolidays: {},
+            
+            // Modal state
+            currentEditingShift: null,
+            currentEditingEmployee: null,
+            currentEditingLocation: null
+        };
+
+        // Database Configuration - loaded from server
+        let DATABASE_CONFIG = {
+            supabase: {
+                url: 'https://uuorqbugdhfoikylbxdz.supabase.co',
+                key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1b3JxYnVnZGhmb2lreWxieGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0MzQ4NDcsImV4cCI6MjA3MDAxMDg0N30.-d7xjLnyFVoVKbruKhVJthHYCFUkkrWlwijDbrKdye4',
+                enabled: true
+            }
+        };
+
+        // Load database configuration from server
+        async function loadDatabaseConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    DATABASE_CONFIG = config;
+                    console.log('✅ Database configuration loaded from server');
+                }
+            } catch (error) {
+                console.warn('⚠️ Could not load database config from server, using defaults:', error);
+            }
+        }
+
+        // Enhanced Database Service with Supabase Integration
+        class DatabaseService {
+            constructor() {
+                this.isConnected = false;
+                this.listeners = new Set();
+                this.localCache = JSON.parse(localStorage.getItem('roster-cache') || '{}');
+                this.supabase = null;
+                this.retryCount = 0;
+                this.maxRetries = 3;
+            }
+
+            // Initialize Supabase connection
+            async initialize(config) {
+                try {
+                    if (config.supabase?.enabled && window.supabase) {
+                        this.supabase = window.supabase.createClient(
+                            config.supabase.url,
+                            config.supabase.key
+                        );
+                        
+                        // Test connection
+                        const { data, error } = await this.supabase
+                            .from('rosters')
+                            .select('count', { count: 'exact', head: true });
+                        
+                        if (!error || error.code === 'PGRST116') { // Table doesn't exist is OK
+                            this.isConnected = true;
+                            console.log('✅ Supabase connected successfully!');
+                            await this.initializeTables();
+                            this.setupRealtimeSubscriptions();
+                            return true;
+                        } else {
+                            throw error;
+                        }
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('❌ Database connection failed:', error);
+                    this.isConnected = false;
+                    return false;
+                }
+            }
+
+            // Initialize required database tables
+            async initializeTables() {
+                const tables = [
+                    {
+                        name: 'rosters',
+                        schema: `
+                            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                            location_id TEXT NOT NULL,
+                            week_key TEXT NOT NULL,
+                            data JSONB NOT NULL,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                            UNIQUE(location_id, week_key)
+                        `
+                    },
+                    {
+                        name: 'employees',
+                        schema: `
+                            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                            location_id TEXT NOT NULL,
+                            employees JSONB NOT NULL,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                            UNIQUE(location_id)
+                        `
+                    },
+                    {
+                        name: 'locations',
+                        schema: `
+                            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                            location_id TEXT NOT NULL,
+                            locations JSONB NOT NULL,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                            UNIQUE(location_id)
+                        `
+                    }
+                ];
+
+                for (const table of tables) {
+                    try {
+                        const { data, error } = await this.supabase
+                            .from(table.name)
+                            .select('count', { count: 'exact', head: true });
+                        
+                        if (error && error.code === 'PGRST116') {
+                            console.log(`⚠️ Table '${table.name}' doesn't exist. Please create it in Supabase dashboard.`);
+                            console.log(`Schema: CREATE TABLE ${table.name} (${table.schema});`);
+                        }
+                    } catch (error) {
+                        console.warn(`Could not verify table ${table.name}:`, error);
+                    }
+                }
+            }
+
+            // Setup real-time subscriptions
+            setupRealtimeSubscriptions() {
+                if (!this.supabase) return;
+
+                // Subscribe to roster changes
+                this.supabase
+                    .channel('rosters-changes')
+                    .on('postgres_changes', {
+                        event: '*',
+                        schema: 'public',
+                        table: 'rosters'
+                    }, (payload) => {
+                        this.notifyListeners({
+                            type: 'roster_updated',
+                            payload
+                        });
+                    })
+                    .subscribe();
+
+                // Subscribe to employee changes
+                this.supabase
+                    .channel('employees-changes')
+                    .on('postgres_changes', {
+                        event: '*',
+                        schema: 'public',
+                        table: 'employees'
+                    }, (payload) => {
+                        this.notifyListeners({
+                            type: 'employees_updated',
+                            payload
+                        });
+                    })
+                    .subscribe();
+            }
+
+            // Real-time data operations
+            async saveRosterData(locationId, weekKey, data) {
+                try {
+                    if (this.isConnected && this.supabase) {
+                        const { error } = await this.supabase
+                            .from('rosters')
+                            .upsert({
+                                location_id: locationId,
+                                week_key: weekKey,
+                                data: data,
+                                updated_at: new Date().toISOString()
+                            });
+                        
+                        if (!error) {
+                            console.log('✅ Roster data saved to Supabase');
+                        } else {
+                            throw error;
+                        }
+                    }
+                    
+                    // Always save to local cache as backup
+                    this.localCache[`${locationId}-${weekKey}`] = data;
+                    localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+                    
+                    // Notify listeners of changes
+                    this.notifyListeners({ type: 'roster_updated', locationId, weekKey, data });
+                    return true;
+                } catch (error) {
+                    console.error('❌ Failed to save roster data:', error);
+                    // Still save to local cache on failure
+                    this.localCache[`${locationId}-${weekKey}`] = data;
+                    localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+                    return false;
+                }
+            }
+
+            async getRosterData(locationId, weekKey) {
+                try {
+                    if (this.isConnected && this.supabase) {
+                        const { data, error } = await this.supabase
+                            .from('rosters')
+                            .select('data')
+                            .eq('location_id', locationId)
+                            .eq('week_key', weekKey)
+                            .single();
+                        
+                        if (!error && data) {
+                            console.log('✅ Roster data loaded from Supabase');
+                            return data.data;
+                        }
+                    }
+                    
+                    // Fallback to local cache
+                    const cached = this.localCache[`${locationId}-${weekKey}`];
+                    if (cached) {
+                        console.log('📱 Using cached roster data');
+                    }
+                    return cached || null;
+                } catch (error) {
+                    console.error('❌ Failed to fetch roster data:', error);
+                    return this.localCache[`${locationId}-${weekKey}`] || null;
+                }
+            }
+
+            async saveEmployees(locationId, employees) {
+                try {
+                    if (this.isConnected && this.supabase) {
+                        const { error } = await this.supabase
+                            .from('employees')
+                            .upsert({
+                                location_id: locationId,
+                                employees: employees,
+                                updated_at: new Date().toISOString()
+                            });
+                        
+                        if (!error) {
+                            console.log('✅ Employees saved to Supabase');
+                        } else {
+                            throw error;
+                        }
+                    }
+                    
+                    this.localCache[`${locationId}-employees`] = employees;
+                    localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+                    this.notifyListeners({ type: 'employees_updated', locationId, employees });
+                    return true;
+                } catch (error) {
+                    console.error('❌ Failed to save employees:', error);
+                    this.localCache[`${locationId}-employees`] = employees;
+                    localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+                    return false;
+                }
+            }
+
+            async getEmployees(locationId) {
+                try {
+                    if (this.isConnected && this.supabase) {
+                        const { data, error } = await this.supabase
+                            .from('employees')
+                            .select('employees')
+                            .eq('location_id', locationId)
+                            .single();
+                        
+                        if (!error && data) {
+                            console.log('✅ Employees loaded from Supabase');
+                            return data.employees;
+                        }
+                    }
+                    
+                    const cached = this.localCache[`${locationId}-employees`];
+                    if (cached) {
+                        console.log('📱 Using cached employees');
+                    }
+                    return cached || null;
+                } catch (error) {
+                    console.error('❌ Failed to fetch employees:', error);
+                    return this.localCache[`${locationId}-employees`] || null;
+                }
+            }
+
+            // Real-time listeners for live updates
+            onDataChange(callback) {
+                this.listeners.add(callback);
+                return () => this.listeners.delete(callback);
+            }
+
+            notifyListeners(change) {
+                this.listeners.forEach(callback => callback(change));
+            }
+
+            // Connection status
+            getConnectionStatus() {
+                return this.isConnected;
+            }
+
+            // Manual sync for offline changes
+            async syncOfflineChanges() {
+                if (!this.isConnected) return false;
+                
+                try {
+                    console.log('🔄 Syncing offline changes...');
+                    // Implementation for syncing offline changes
+                    return true;
+                } catch (error) {
+                    console.error('❌ Failed to sync offline changes:', error);
+                    return false;
+                }
+            }
+        }
+
+        // Initialize database service
+        const dbService = new DatabaseService();
+
+        // Utility Functions
+        function getCurrentWeekDates() {
+            const days = [];
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(appState.currentWeekStart);
+                date.setDate(appState.currentWeekStart.getDate() + i);
+                const dayName = dayNames[date.getDay()];
+                const day = date.getDate();
+                const month = monthNames[date.getMonth()];
+                days.push(`${dayName} ${day}-${month}`);
+            }
+            return days;
+        }
+
+        function getCurrentWeekString() {
+            const startDate = new Date(appState.currentWeekStart);
+            const endDate = new Date(appState.currentWeekStart);
+            endDate.setDate(startDate.getDate() + 6);
+            
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const startStr = `${startDate.getDate()}-${monthNames[startDate.getMonth()]}`;
+            const endStr = `${endDate.getDate()}-${monthNames[endDate.getMonth()]}`;
+            
+            return `${startStr} to ${endStr}`;
+        }
+
+        function getCurrentWeekKey() {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames[appState.currentWeekStart.getMonth()];
+            const date = appState.currentWeekStart.getDate();
+            const year = appState.currentWeekStart.getFullYear();
+            return `${month}-${date}-${year}`;
+        }
+
+        function getDefaultShift() {
+            return {
+                employee: '', 
+                scheduledStart: '09:00', 
+                scheduledEnd: '17:00',
+                actualStart: '',
+                actualEnd: '',
+                leaveType: '',
+                leaveHours: 0,
+                notes: ''
+            };
+        }
+
+        function calculateHours(scheduledStart, scheduledEnd, actualStart, actualEnd, day, leaveType, leaveHours = 0, isPublicHoliday = false) {
+            // Handle pure leave days (no work)
+            if (leaveType && (!actualStart && !actualEnd)) {
+                return { 
+                    total: 0, 
+                    regular: 0, 
+                    overtime: 0, 
+                    publicHoliday: 0,
+                    annualLeave: leaveType === 'annual' ? (leaveHours || 8) : 0,
+                    sickLeave: leaveType === 'sick' ? (leaveHours || 8) : 0,
+                    publicHolidayLeave: leaveType === 'public' ? (leaveHours || 8) : 0
+                };
+            }
+            
+            const startTime = actualStart || scheduledStart;
+            const endTime = actualEnd || scheduledEnd;
+            
+            if (!startTime || !endTime) {
+                return { 
+                    total: 0, 
+                    regular: 0, 
+                    overtime: 0, 
+                    publicHoliday: 0,
+                    annualLeave: 0,
+                    sickLeave: 0,
+                    publicHolidayLeave: 0
+                };
+            }
+            
+            const start = new Date(`2024-01-01 ${startTime}`);
+            const end = new Date(`2024-01-01 ${endTime}`);
+            let totalHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            
+            if (totalHours <= 0) {
+                return { 
+                    total: 0, 
+                    regular: 0, 
+                    overtime: 0, 
+                    publicHoliday: 0,
+                    annualLeave: 0,
+                    sickLeave: 0,
+                    publicHolidayLeave: 0
+                };
+            }
+            
+            // Deduct break time for shifts > 4 hours
+            let workingHours = totalHours > 4 ? totalHours - 0.5 : totalHours;
+            
+            // Initialize leave hours
+            let annualLeaveHours = 0;
+            let sickLeaveHours = 0;
+            let publicHolidayLeaveHours = 0;
+            
+            // Handle mixed work + leave scenarios
+            if (leaveType && leaveHours > 0) {
+                if (leaveType === 'annual') {
+                    annualLeaveHours = leaveHours;
+                } else if (leaveType === 'sick') {
+                    sickLeaveHours = leaveHours;
+                } else if (leaveType === 'public') {
+                    publicHolidayLeaveHours = leaveHours;
+                }
+            }
+            
+            // Handle public holiday work (gets special rate)
+            if (isPublicHoliday && workingHours > 0) {
+                return {
+                    total: workingHours,
+                    regular: 0,
+                    overtime: 0,
+                    publicHoliday: workingHours,
+                    annualLeave: annualLeaveHours,
+                    sickLeave: sickLeaveHours,
+                    publicHolidayLeave: publicHolidayLeaveHours
+                };
+            }
+            
+            // Regular work day calculations
+            const isThursdayOrFriday = day.includes('Thu') || day.includes('Fri');
+            const overtimeStart = new Date(`2024-01-01 18:00`);
+            
+            let regularHours = 0;
+            let overtimeHours = 0;
+            
+            if (end.getTime() > overtimeStart.getTime()) {
+                const overtimeEnd = new Date(`2024-01-01 ${endTime}`);
+                overtimeHours = (overtimeEnd.getTime() - overtimeStart.getTime()) / (1000 * 60 * 60);
+                regularHours = workingHours - overtimeHours;
+                
+                // Deduct break time if it affects overtime calculation
+                if (totalHours > 4 && overtimeHours > 0) {
+                    if (regularHours > 8.5) {
+                        regularHours = 8;
+                        overtimeHours = workingHours - 8;
+                    }
+                }
+            } else {
+                regularHours = workingHours;
+            }
+            
+            // Thursday/Friday get 1.5x rate after 8 hours
+            if (isThursdayOrFriday && regularHours > 8) {
+                overtimeHours += regularHours - 8;
+                regularHours = 8;
+            }
+            
+            return {
+                total: workingHours,
+                regular: Math.max(0, regularHours),
+                overtime: Math.max(0, overtimeHours),
+                publicHoliday: 0,
+                annualLeave: annualLeaveHours,
+                sickLeave: sickLeaveHours,
+                publicHolidayLeave: publicHolidayLeaveHours
+            };
+        }
+
+        // Authentication Functions
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Check credentials
+            const validCredentials = Object.entries(appState.appConfig.users).find(
+                ([role, validPassword]) => validPassword === password && username === role
+            );
+            
+            if (validCredentials) {
+                appState.isLoggedIn = true;
+                appState.currentUser = validCredentials[0]; // role name
+                
+                // Save remembered password if checked
+                if (document.getElementById('rememberPassword').checked) {
+                    localStorage.setItem('rememberedPassword', password);
+                    localStorage.setItem('rememberedUsername', username);
+                }
+                
+                showMainApp();
+                clearLoginError();
+            } else {
+                showLoginError('Invalid username or password');
+            }
+        }
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    errorDiv.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function clearLoginError() {
+            const errorDiv = document.getElementById('loginError');
+            if (errorDiv) {
+                errorDiv.classList.add('hidden');
+            }
+        }
+
+        function handleLogout() {
+            appState.isLoggedIn = false;
+            appState.currentUser = '';
+            document.getElementById('loginForm').reset();
+            showLoginScreen();
+        }
+
+        function showLoginScreen() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('currentUserDisplay').textContent = appState.currentUser;
+            loadRosterData();
+        }
+
+        // Tab Management
+        function switchTab(tabName) {
+            // Update active tab state
+            appState.activeTab = tabName;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // Show correct content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`${tabName}Tab`).classList.remove('hidden');
+            
+            if (tabName === 'roster') {
+                renderRosterGrid();
+            } else if (tabName === 'employees') {
+                renderEmployeesTab();
+            } else if (tabName === 'locations') {
+                renderLocationsTab();
+            } else if (tabName === 'reports') {
+                renderReportsTab();
+            }
+        }
+
+        // Week Navigation
+        function navigateWeek(direction) {
+            const currentWeek = new Date(appState.currentWeekStart);
+            
+            if (direction === 'prev') {
+                currentWeek.setDate(currentWeek.getDate() - 7);
+            } else {
+                currentWeek.setDate(currentWeek.getDate() + 7);
+            }
+            
+            appState.currentWeekStart = currentWeek;
+            updateWeekDisplay();
+            loadRosterData();
+        }
+
+        function updateWeekDisplay() {
+            const weekString = getCurrentWeekString();
+            document.getElementById('currentWeekDisplay').textContent = weekString;
+        }
+
+        // Roster Grid Functions
+        async function loadRosterData() {
+            const weekKey = getCurrentWeekKey();
+            try {
+                setSyncStatus('syncing');
+                const rosterData = await dbService.getRosterData(appState.appConfig.locationId, weekKey);
+                
+                if (rosterData) {
+                    appState.allRosterData[weekKey] = rosterData;
+                } else {
+                    // Initialize empty roster for the week
+                    appState.allRosterData[weekKey] = {};
+                    appState.employees.forEach(employee => {
+                        appState.allRosterData[weekKey][employee] = {};
+                    });
+                }
+                
+                renderRosterGrid();
+                setSyncStatus('synced');
+            } catch (error) {
+                console.error('Failed to load roster data:', error);
+                setSyncStatus('offline');
+            }
+        }
+
+        async function saveRosterData() {
+            const weekKey = getCurrentWeekKey();
+            try {
+                setSyncStatus('syncing');
+                const success = await dbService.saveRosterData(
+                    appState.appConfig.locationId, 
+                    weekKey, 
+                    appState.allRosterData[weekKey] || {}
+                );
+                
+                if (success) {
+                    setSyncStatus('synced');
+                    console.log('✅ Roster data saved successfully');
+                } else {
+                    setSyncStatus('offline');
+                    console.warn('⚠️ Roster data saved locally only');
+                }
+            } catch (error) {
+                console.error('Failed to save roster data:', error);
+                setSyncStatus('offline');
+            }
+        }
+
+        function setSyncStatus(status) {
+            appState.syncStatus = status;
+            const statusIndicator = document.getElementById('syncStatus');
+            const statusText = document.getElementById('syncText');
+            
+            if (statusIndicator && statusText) {
+                statusIndicator.className = `status-indicator status-${status}`;
+                
+                switch (status) {
+                    case 'synced':
+                        statusText.textContent = 'Synced';
+                        break;
+                    case 'syncing':
+                        statusText.textContent = 'Syncing...';
+                        break;
+                    case 'offline':
+                        statusText.textContent = 'Offline';
+                        break;
+                }
+            }
+        }
+
+        function toggleEditMode() {
+            appState.editMode = !appState.editMode;
+            
+            const editBtn = document.getElementById('editModeBtn');
+            const saveBtn = document.getElementById('saveModeBtn');
+            
+            if (appState.editMode) {
+                editBtn.classList.add('hidden');
+                saveBtn.classList.remove('hidden');
+            } else {
+                editBtn.classList.remove('hidden');
+                saveBtn.classList.add('hidden');
+                saveRosterData();
+            }
+            
+            renderRosterGrid();
+        }
+
+        function renderRosterGrid() {
+            const grid = document.getElementById('rosterGrid');
+            if (!grid) return;
+            
+            const weekDays = getCurrentWeekDates();
+            const weekKey = getCurrentWeekKey();
+            const currentWeekData = appState.allRosterData[weekKey] || {};
+            
+            // Clear existing grid
+            grid.innerHTML = '';
+            
+            // Add header row
+            grid.appendChild(createHeaderCell('Employee'));
+            weekDays.forEach(day => {
+                grid.appendChild(createHeaderCell(day));
+            });
+            
+            // Add employee rows
+            appState.employees.forEach(employee => {
+                // Employee name cell
+                grid.appendChild(createEmployeeNameCell(employee));
+                
+                // Day cells
+                weekDays.forEach(day => {
+                    grid.appendChild(createDayCell(employee, day, currentWeekData[employee]?.[day] || []));
+                });
+            });
+            
+            // Initialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function createHeaderCell(text) {
+            const cell = document.createElement('div');
+            cell.className = 'roster-cell header';
+            cell.textContent = text;
+            return cell;
+        }
+
+        function createEmployeeNameCell(employee) {
+            const cell = document.createElement('div');
+            cell.className = 'roster-cell employee-name';
+            cell.innerHTML = `
+                <div class="font-medium text-gray-900">${employee}</div>
+                <div class="text-sm text-gray-500">View Schedule</div>
+            `;
+            return cell;
+        }
+
+        function createDayCell(employee, day, shifts = []) {
+            const cell = document.createElement('div');
+            cell.className = 'roster-cell';
+            
+            if (appState.editMode) {
+                cell.innerHTML = `
+                    <button onclick="openShiftModal('', '${day}', '${employee}', null)" class="btn-ghost w-full">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                    </button>
+                `;
+            }
+            
+            shifts.forEach(shift => {
+                const shiftCard = createShiftCard(shift, employee, day);
+                cell.appendChild(shiftCard);
+            });
+            
+            return cell;
+        }
+
+        function createShiftCard(shift, employee, day) {
+            const card = document.createElement('div');
+            card.className = 'shift-card';
+            
+            if (shift.leaveType) {
+                card.style.backgroundColor = getLeaveTypeColor(shift.leaveType);
+                card.style.color = 'white';
+                card.innerHTML = `
+                    <div>${getLeaveTypeDisplay(shift.leaveType)}</div>
+                    <div class="text-xs">${shift.leaveHours || 8}h</div>
+                `;
+            } else {
+                card.innerHTML = `
+                    <div>${shift.scheduledStart || '09:00'} - ${shift.scheduledEnd || '17:00'}</div>
+                    <div class="text-xs">${shift.location || appState.locations[0]}</div>
+                `;
+            }
+            
+            if (appState.editMode) {
+                card.onclick = () => openShiftModal(employee, day, employee, shift);
+            }
+            
+            return card;
+        }
+
+        function getLeaveTypeColor(leaveType) {
+            switch (leaveType) {
+                case 'annual': return 'var(--success)';
+                case 'sick': return 'var(--warning)';
+                case 'public': return 'var(--primary)';
+                default: return 'var(--muted)';
+            }
+        }
+
+        function getLeaveTypeDisplay(leaveType) {
+            switch (leaveType) {
+                case 'annual': return 'Annual Leave';
+                case 'sick': return 'Sick Leave';
+                case 'public': return 'Public Holiday';
+                default: return 'Leave';
+            }
+        }
+
+        // Modal Functions
+        function openShiftModal(location, day, employee, shift) {
+            appState.currentEditingShift = { location, day, employee, shift };
+            
+            // Populate form
+            populateShiftModal(shift);
+            
+            // Show modal
+            document.getElementById('shiftModal').classList.remove('hidden');
+        }
+
+        function closeShiftModal() {
+            document.getElementById('shiftModal').classList.add('hidden');
+            appState.currentEditingShift = null;
+        }
+
+        function populateShiftModal(shift) {
+            const employeeSelect = document.getElementById('shiftEmployee');
+            const locationSelect = document.getElementById('shiftLocation');
+            
+            // Populate employee options
+            employeeSelect.innerHTML = '';
+            appState.employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp;
+                option.textContent = emp;
+                if (shift && shift.employee === emp) option.selected = true;
+                employeeSelect.appendChild(option);
+            });
+            
+            // Populate location options
+            locationSelect.innerHTML = '';
+            appState.locations.forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc;
+                option.textContent = loc;
+                if (shift && shift.location === loc) option.selected = true;
+                locationSelect.appendChild(option);
+            });
+            
+            // Set form values
+            document.getElementById('shiftStartTime').value = shift?.scheduledStart || '09:00';
+            document.getElementById('shiftEndTime').value = shift?.scheduledEnd || '17:00';
+            document.getElementById('shiftLeaveType').value = shift?.leaveType || '';
+            document.getElementById('shiftNotes').value = shift?.notes || '';
+        }
+
+        function handleShiftFormSubmit(event) {
+            event.preventDefault();
+            
+            if (!appState.currentEditingShift) return;
+            
+            const formData = {
+                employee: document.getElementById('shiftEmployee').value,
+                location: document.getElementById('shiftLocation').value,
+                scheduledStart: document.getElementById('shiftStartTime').value,
+                scheduledEnd: document.getElementById('shiftEndTime').value,
+                leaveType: document.getElementById('shiftLeaveType').value,
+                notes: document.getElementById('shiftNotes').value,
+                actualStart: '',
+                actualEnd: '',
+                leaveHours: 0
+            };
+            
+            // Save to roster data
+            const { day, employee } = appState.currentEditingShift;
+            const weekKey = getCurrentWeekKey();
+            
+            if (!appState.allRosterData[weekKey]) {
+                appState.allRosterData[weekKey] = {};
+            }
+            if (!appState.allRosterData[weekKey][employee]) {
+                appState.allRosterData[weekKey][employee] = {};
+            }
+            if (!appState.allRosterData[weekKey][employee][day]) {
+                appState.allRosterData[weekKey][employee][day] = [];
+            }
+            
+            // Add or update shift
+            const existingShiftIndex = appState.allRosterData[weekKey][employee][day].findIndex(
+                s => s === appState.currentEditingShift.shift
+            );
+            
+            if (existingShiftIndex >= 0) {
+                appState.allRosterData[weekKey][employee][day][existingShiftIndex] = formData;
+            } else {
+                appState.allRosterData[weekKey][employee][day].push(formData);
+            }
+            
+            closeShiftModal();
+            renderRosterGrid();
+            saveRosterData();
+        }
+
+        function deleteShift() {
+            if (!appState.currentEditingShift) return;
+            
+            const { day, employee } = appState.currentEditingShift;
+            const weekKey = getCurrentWeekKey();
+            
+            if (appState.allRosterData[weekKey]?.[employee]?.[day]) {
+                const shiftIndex = appState.allRosterData[weekKey][employee][day].findIndex(
+                    s => s === appState.currentEditingShift.shift
+                );
+                
+                if (shiftIndex >= 0) {
+                    appState.allRosterData[weekKey][employee][day].splice(shiftIndex, 1);
+                }
+            }
+            
+            closeShiftModal();
+            renderRosterGrid();
+            saveRosterData();
+        }
+
+        // Employee Management Functions
+        function renderEmployeesTab() {
+            const container = document.getElementById('employeesList');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            appState.employees.forEach(employee => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-lg shadow-sm border';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium text-gray-900">${employee}</h3>
+                            <p class="text-sm text-gray-500">Active Employee</p>
+                        </div>
+                        <button onclick="editEmployee('${employee}')" class="btn-ghost">
+                            <i data-lucide="edit" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">Status:</span>
+                            <span class="ml-2 text-success">Active</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Shifts:</span>
+                            <span class="ml-2">Available</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            // Initialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function editEmployee(employee) {
+            // Implementation for employee editing
+            console.log('Edit employee:', employee);
+        }
+
+        // Location Management Functions
+        function renderLocationsTab() {
+            const container = document.getElementById('locationsList');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            appState.locations.forEach(location => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-lg shadow-sm border';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium text-gray-900">${location}</h3>
+                            <p class="text-sm text-gray-500">Active Location</p>
+                        </div>
+                        <button onclick="editLocation('${location}')" class="btn-ghost">
+                            <i data-lucide="edit" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">Status:</span>
+                            <span class="ml-2 text-success">Operational</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Staff:</span>
+                            <span class="ml-2">${Math.floor(Math.random() * 5) + 1}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            // Initialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function editLocation(location) {
+            // Implementation for location editing
+            console.log('Edit location:', location);
+        }
+
+        // Reports Functions
+        function renderReportsTab() {
+            const container = document.getElementById('reportsContent');
+            if (!container) return;
+            
+            const weekKey = getCurrentWeekKey();
+            const weekData = appState.allRosterData[weekKey] || {};
+            
+            container.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-sm border">
+                    <h3 class="text-lg font-semibold mb-4">Weekly Summary - ${getCurrentWeekString()}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-primary">${Object.keys(weekData).length}</div>
+                            <div class="text-sm text-gray-500">Active Employees</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-success">${calculateTotalShifts(weekData)}</div>
+                            <div class="text-sm text-gray-500">Total Shifts</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-warning">${calculateTotalHours(weekData)}</div>
+                            <div class="text-sm text-gray-500">Total Hours</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow-sm border">
+                    <h3 class="text-lg font-semibold mb-4">Employee Breakdown</h3>
+                    <div class="space-y-2">
+                        ${generateEmployeeReports(weekData)}
+                    </div>
+                </div>
+            `;
+        }
+
+        function calculateTotalShifts(weekData) {
+            let total = 0;
+            Object.values(weekData).forEach(employee => {
+                Object.values(employee).forEach(day => {
+                    total += day.length;
+                });
+            });
+            return total;
+        }
+
+        function calculateTotalHours(weekData) {
+            let total = 0;
+            Object.values(weekData).forEach(employee => {
+                Object.entries(employee).forEach(([day, shifts]) => {
+                    shifts.forEach(shift => {
+                        const hours = calculateHours(
+                            shift.scheduledStart,
+                            shift.scheduledEnd,
+                            shift.actualStart,
+                            shift.actualEnd,
+                            day,
+                            shift.leaveType,
+                            shift.leaveHours
+                        );
+                        total += hours.total;
+                    });
+                });
+            });
+            return Math.round(total * 10) / 10;
+        }
+
+        function generateEmployeeReports(weekData) {
+            return Object.entries(weekData).map(([employee, days]) => {
+                const shifts = Object.values(days).flat();
+                const totalHours = shifts.reduce((sum, shift) => {
+                    const hours = calculateHours(
+                        shift.scheduledStart,
+                        shift.scheduledEnd,
+                        shift.actualStart,
+                        shift.actualEnd,
+                        '',
+                        shift.leaveType,
+                        shift.leaveHours
+                    );
+                    return sum + hours.total;
+                }, 0);
+                
+                return `
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="font-medium">${employee}</span>
+                        <div class="text-sm text-gray-600">
+                            <span class="mr-4">${shifts.length} shifts</span>
+                            <span>${Math.round(totalHours * 10) / 10}h</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Connection Status Management
+        function updateConnectionStatus() {
+            const isConnected = dbService.getConnectionStatus();
+            const statusIndicator = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
+            
+            if (statusIndicator && statusText) {
+                if (isConnected) {
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusText.textContent = 'Connected';
+                } else {
+                    statusIndicator.className = 'status-indicator status-offline';
+                    statusText.textContent = 'Offline Mode';
+                }
+            }
+        }
+
+        // Initialize Application
+        async function initializeApp() {
+            console.log('🚀 Initializing Staff Roster Management System...');
+            
+            // Load database configuration from server first
+            await loadDatabaseConfig();
+            
+            // Initialize database connection
+            try {
+                await dbService.initialize(DATABASE_CONFIG);
+                updateConnectionStatus();
+            } catch (error) {
+                console.error('Database initialization failed:', error);
+                updateConnectionStatus();
+            }
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Load saved authentication if remembered
+            loadRememberedLogin();
+            
+            // Update week display
+            updateWeekDisplay();
+            
+            // Initialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+            
+            console.log('✅ Application initialized successfully!');
+        }
+
+        function setupEventListeners() {
+            // Authentication
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            
+            // Password toggle
+            document.getElementById('togglePassword').addEventListener('click', () => {
+                const passwordInput = document.getElementById('password');
+                const icon = document.querySelector('#togglePassword i');
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.setAttribute('data-lucide', 'eye');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.setAttribute('data-lucide', 'eye-off');
+                }
+                
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            });
+            
+            // Tab navigation
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    switchTab(button.dataset.tab);
+                });
+            });
+            
+            // Week navigation
+            document.getElementById('prevWeek').addEventListener('click', () => navigateWeek('prev'));
+            document.getElementById('nextWeek').addEventListener('click', () => navigateWeek('next'));
+            
+            // Edit mode
+            document.getElementById('editModeBtn').addEventListener('click', toggleEditMode);
+            document.getElementById('saveModeBtn').addEventListener('click', toggleEditMode);
+            
+            // Modal management
+            document.getElementById('closeModal').addEventListener('click', closeShiftModal);
+            document.getElementById('shiftForm').addEventListener('submit', handleShiftFormSubmit);
+            document.getElementById('deleteShift').addEventListener('click', deleteShift);
+            
+            // Close modal when clicking outside
+            document.getElementById('shiftModal').addEventListener('click', (e) => {
+                if (e.target.id === 'shiftModal') {
+                    closeShiftModal();
+                }
+            });
+            
+            // Online/offline detection
+            window.addEventListener('online', () => {
+                appState.isOnline = true;
+                updateConnectionStatus();
+                dbService.syncOfflineChanges();
+            });
+            
+            window.addEventListener('offline', () => {
+                appState.isOnline = false;
+                updateConnectionStatus();
+            });
+            
+            // Real-time data updates
+            dbService.onDataChange((change) => {
+                console.log('Real-time update received:', change);
+                if (change.type === 'roster_updated') {
+                    loadRosterData();
+                }
+            });
+        }
+
+        function loadRememberedLogin() {
+            const rememberedUsername = localStorage.getItem('rememberedUsername');
+            const rememberedPassword = localStorage.getItem('rememberedPassword');
+            
+            if (rememberedUsername && rememberedPassword) {
+                document.getElementById('username').value = rememberedUsername;
+                document.getElementById('password').value = rememberedPassword;
+                document.getElementById('rememberPassword').checked = true;
+            }
+        }
+
+        // Start the application when the page loads
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Global functions for onclick handlers
+        window.openShiftModal = openShiftModal;
+        window.editEmployee = editEmployee;
+        window.editLocation = editLocation;
+    </script>
+</body>
+</html>
