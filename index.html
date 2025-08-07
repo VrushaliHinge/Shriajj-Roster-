@@ -2572,19 +2572,35 @@
             const templateData = {};
             Object.keys(previousWeekData).forEach(employee => {
                 templateData[employee] = {};
-                Object.keys(previousWeekData[employee]).forEach((oldDay, dayIndex) => {
-                    // Map old day to new day based on position in week
-                    const newDay = currentWeekDays[dayIndex] || currentWeekDays[previousWeekDays.indexOf(oldDay)];
-                    if (newDay) {
+                
+                // Map each day from previous week to corresponding day in current week
+                Object.keys(previousWeekData[employee]).forEach(oldDay => {
+                    // Find the index of the old day in the previous week
+                    const dayIndex = previousWeekDays.findIndex(day => day === oldDay);
+                    
+                    if (dayIndex >= 0 && dayIndex < currentWeekDays.length) {
+                        // Map to the same day of the week in the current week
+                        const newDay = currentWeekDays[dayIndex];
+                        
                         templateData[employee][newDay] = previousWeekData[employee][oldDay].map(shift => ({
                             ...shift,
+                            employee: employee, // Ensure employee name is correct
                             actualStart: '', // Clear actual times
                             actualEnd: '',
                             notes: '', // Clear notes
-                            leaveHours: 0 // Reset leave hours
+                            leaveHours: 0, // Reset leave hours
+                            isPublicHoliday: false // Reset public holiday flag for new week
                         }));
                     }
                 });
+            });
+            
+            // Log detailed copy information
+            let totalShiftsCopied = 0;
+            Object.keys(templateData).forEach(employee => {
+                const shifts = Object.keys(templateData[employee]).length;
+                totalShiftsCopied += shifts;
+                console.log(`📋 Copied ${shifts} shifts for ${employee}:`, Object.keys(templateData[employee]));
             });
             
             // Save copied data to current week
@@ -2595,7 +2611,9 @@
             saveRosterData();
             
             console.log(`✅ Copied ${Object.keys(templateData).length} employee schedules from previous week`);
-            alert(`Successfully copied ${Object.keys(templateData).length} employee schedules from previous week!`);
+            
+            const detailMessage = `Successfully copied ${Object.keys(templateData).length} employee schedules from previous week!\n\nTotal shifts copied: ${totalShiftsCopied}\nEmployees: ${Object.keys(templateData).join(', ')}`;
+            alert(detailMessage);
         }
 
         function showDatePicker() {
