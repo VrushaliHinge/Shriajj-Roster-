@@ -2249,6 +2249,30 @@
             console.log(`✅ Shift saved: ${selectedEmployee} at ${selectedLocation} on ${day}`);
         }
 
+        function handleLeaveTypeChange(event) {
+            const leaveType = event.target.value;
+            const publicHolidayCheckbox = document.getElementById('publicHolidayFlag');
+            
+            // If leave type is selected, uncheck public holiday flag (can't work and be on leave)
+            if (leaveType && publicHolidayCheckbox.checked) {
+                publicHolidayCheckbox.checked = false;
+                console.log('🔄 Cleared public holiday flag because leave type was selected');
+            }
+        }
+        
+        function handlePublicHolidayChange(event) {
+            const isChecked = event.target.checked;
+            const leaveTypeSelect = document.getElementById('shiftLeaveType');
+            
+            // If public holiday is checked, clear leave type (can't work and be on leave)
+            if (isChecked && leaveTypeSelect.value) {
+                leaveTypeSelect.value = '';
+                console.log('🔄 Cleared leave type because public holiday flag was checked');
+            }
+            
+            console.log('🏷️ Public holiday checkbox changed:', isChecked);
+        }
+
         function deleteShift() {
             if (!appState.currentEditingShift) return;
             
@@ -3209,6 +3233,10 @@
             document.getElementById('closeModal').addEventListener('click', closeShiftModal);
             document.getElementById('shiftForm').addEventListener('submit', handleShiftFormSubmit);
             document.getElementById('deleteShift').addEventListener('click', deleteShift);
+            
+            // Handle leave type and public holiday checkbox interactions
+            document.getElementById('shiftLeaveType').addEventListener('change', handleLeaveTypeChange);
+            document.getElementById('publicHolidayFlag').addEventListener('change', handlePublicHolidayChange);
             
             // Close modal when clicking outside
             document.getElementById('shiftModal').addEventListener('click', (e) => {
