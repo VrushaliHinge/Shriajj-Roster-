@@ -1,0 +1,2186 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Calendar, 
+  Clock, 
+  Edit2, 
+  Save, 
+  Plus, 
+  Trash2, 
+  User, 
+  Lock, 
+  LogOut, 
+  Users, 
+  Building, 
+  ChevronLeft, 
+  ChevronRight, 
+  Download, 
+  Upload,
+  Eye,
+  EyeOff,
+  Wifi,
+  WifiOff
+} from 'lucide-react';
+
+// Real-time Database Configuration
+const DATABASE_CONFIG = {
+  // Supabase Configuration (Active)
+  supabase: {
+    url: 'https://uuorqbugdhfoikylbxdz.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1b3JxYnVnZGhmb2lreWxieGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0MzQ4NDcsImV4cCI6MjA3MDAxMDg0N30.-d7xjLnyFVoVKbruKhVJthHYCFUkkrWlwijDbrKdye4',
+    enabled: true
+  },
+  // Other options (disabled)
+  firebase: {
+    enabled: false
+  },
+  customApi: {
+    enabled: false
+  }
+};
+
+// Enhanced Database Service with Supabase Integration
+class DatabaseService {
+  constructor() {
+    this.isConnected = false;
+    this.listeners = new Set();
+    this.localCache = JSON.parse(localStorage.getItem('roster-cache') || '{}');
+    this.supabase = null;
+    this.retryCount = 0;
+    this.maxRetries = 3;
+  }
+
+  // Initialize Supabase connection
+  async initialize(config) {
+    try {
+      if (config.supabase?.enabled) {
+        // Create Supabase client using fetch API
+        this.supabaseUrl = config.supabase.url;
+        this.supabaseKey = config.supabase.key;
+        
+        // Test connection with a simple request
+        const response = await fetch(`${this.supabaseUrl}/rest/v1/`, {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        });
+        
+        if (response.ok || response.status === 404) { // 404 is expected for root endpoint
+          this.isConnected = true;
+          console.log('✅ Supabase connected successfully!');
+          
+          // Initialize database tables if they don't exist
+          await this.initializeTables();
+          
+          return true;
+        } else {
+          throw new Error(`Supabase connection failed: ${response.status}`);
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('❌ Database connection failed:', error);
+      this.isConnected = false;
+      return false;
+    }
+  }
+
+  // Initialize required database tables
+  async initializeTables() {
+    try {
+      // Check if tables exist by trying to query them
+      const tables = ['rosters', 'employees', 'locations'];
+      
+      for (const table of tables) {
+        try {
+          await this.supabaseRequest('GET', table, null, { limit: 1 });
+        } catch (error) {
+          if (error.message.includes('relation') && error.message.includes('does not exist')) {
+            console.log(`⚠️ Table '${table}' doesn't exist. Please create it in Supabase dashboard.`);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Could not verify tables:', error);
+    }
+  }
+
+  // Generic Supabase request helper
+  async supabaseRequest(method, table, data = null, params = {}) {
+    if (!this.isConnected) {
+      throw new Error('Database not connected');
+    }
+
+    const url = new URL(`${this.supabaseUrl}/rest/v1/${table}`);
+    
+    // Add query parameters
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
+
+    const options = {
+      method,
+      headers: {
+        'apikey': this.supabaseKey,
+        'Authorization': `Bearer ${this.supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }
+    };
+
+    if (data && (method === 'POST' || method === 'PATCH')) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url.toString(), options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Supabase ${method} failed (${response.status}): ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  // Real-time data operations
+  async saveRosterData(locationId, weekKey, data) {
+    try {
+      if (this.isConnected) {
+        // Try to update existing record first
+        const existing = await this.supabaseRequest('GET', 'rosters', null, {
+          'location_id': `eq.${locationId}`,
+          'week_key': `eq.${weekKey}`
+        });
+
+        if (existing && existing.length > 0) {
+          // Update existing record
+          await this.supabaseRequest('PATCH', `rosters?location_id=eq.${locationId}&week_key=eq.${weekKey}`, {
+            data: data,
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          // Insert new record
+          await this.supabaseRequest('POST', 'rosters', {
+            location_id: locationId,
+            week_key: weekKey,
+            data: data,
+            updated_at: new Date().toISOString()
+          });
+        }
+        
+        console.log('✅ Roster data saved to Supabase');
+      }
+      
+      // Always save to local cache as backup
+      this.localCache[`${locationId}-${weekKey}`] = data;
+      localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+      
+      // Notify listeners of changes
+      this.notifyListeners({ type: 'roster_updated', locationId, weekKey, data });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save roster data:', error);
+      // Still save to local cache on failure
+      this.localCache[`${locationId}-${weekKey}`] = data;
+      localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+      return false;
+    }
+  }
+
+  async getRosterData(locationId, weekKey) {
+    try {
+      if (this.isConnected) {
+        const result = await this.supabaseRequest('GET', 'rosters', null, {
+          'location_id': `eq.${locationId}`,
+          'week_key': `eq.${weekKey}`
+        });
+        
+        if (result && result.length > 0) {
+          console.log('✅ Roster data loaded from Supabase');
+          return result[0].data;
+        }
+      }
+      
+      // Fallback to local cache
+      const cached = this.localCache[`${locationId}-${weekKey}`];
+      if (cached) {
+        console.log('📱 Using cached roster data');
+      }
+      return cached || null;
+    } catch (error) {
+      console.error('❌ Failed to fetch roster data:', error);
+      return this.localCache[`${locationId}-${weekKey}`] || null;
+    }
+  }
+
+  async saveEmployees(locationId, employees) {
+    try {
+      if (this.isConnected) {
+        const existing = await this.supabaseRequest('GET', 'employees', null, {
+          'location_id': `eq.${locationId}`
+        });
+
+        if (existing && existing.length > 0) {
+          await this.supabaseRequest('PATCH', `employees?location_id=eq.${locationId}`, {
+            employees: employees,
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          await this.supabaseRequest('POST', 'employees', {
+            location_id: locationId,
+            employees: employees,
+            updated_at: new Date().toISOString()
+          });
+        }
+        
+        console.log('✅ Employees saved to Supabase');
+      }
+      
+      this.localCache[`${locationId}-employees`] = employees;
+      localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+      this.notifyListeners({ type: 'employees_updated', locationId, employees });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save employees:', error);
+      this.localCache[`${locationId}-employees`] = employees;
+      localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+      return false;
+    }
+  }
+
+  async getEmployees(locationId) {
+    try {
+      if (this.isConnected) {
+        const result = await this.supabaseRequest('GET', 'employees', null, {
+          'location_id': `eq.${locationId}`
+        });
+        
+        if (result && result.length > 0) {
+          console.log('✅ Employees loaded from Supabase');
+          return result[0].employees;
+        }
+      }
+      
+      const cached = this.localCache[`${locationId}-employees`];
+      if (cached) {
+        console.log('📱 Using cached employees');
+      }
+      return cached || null;
+    } catch (error) {
+      console.error('❌ Failed to fetch employees:', error);
+      return this.localCache[`${locationId}-employees`] || null;
+    }
+  }
+
+  async saveLocations(locationId, locations) {
+    try {
+      if (this.isConnected) {
+        const existing = await this.supabaseRequest('GET', 'locations', null, {
+          'location_id': `eq.${locationId}`
+        });
+
+        if (existing && existing.length > 0) {
+          await this.supabaseRequest('PATCH', `locations?location_id=eq.${locationId}`, {
+            locations: locations,
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          await this.supabaseRequest('POST', 'locations', {
+            location_id: locationId,
+            locations: locations,
+            updated_at: new Date().toISOString()
+          });
+        }
+        
+        console.log('✅ Locations saved to Supabase');
+      }
+      
+      this.localCache[`${locationId}-locations`] = locations;
+      localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+      this.notifyListeners({ type: 'locations_updated', locationId, locations });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save locations:', error);
+      this.localCache[`${locationId}-locations`] = locations;
+      localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+      return false;
+    }
+  }
+
+  async getLocations(locationId) {
+    try {
+      if (this.isConnected) {
+        const result = await this.supabaseRequest('GET', 'locations', null, {
+          'location_id': `eq.${locationId}`
+        });
+        
+        if (result && result.length > 0) {
+          console.log('✅ Locations loaded from Supabase');
+          return result[0].locations;
+        }
+      }
+      
+      const cached = this.localCache[`${locationId}-locations`];
+      if (cached) {
+        console.log('📱 Using cached locations');
+      }
+      return cached || null;
+    } catch (error) {
+      console.error('❌ Failed to fetch locations:', error);
+      return this.localCache[`${locationId}-locations`] || null;
+    }
+  }
+
+  // Real-time listeners for live updates
+  onDataChange(callback) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  }
+
+  notifyListeners(change) {
+    this.listeners.forEach(callback => callback(change));
+  }
+
+  // Connection status
+  getConnectionStatus() {
+    return this.isConnected;
+  }
+
+  // Manual sync for offline changes
+  async syncOfflineChanges() {
+    if (!this.isConnected) return false;
+    
+    try {
+      // Sync any offline changes stored in local cache
+      console.log('🔄 Syncing offline changes...');
+      // Implementation depends on your offline strategy
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync offline changes:', error);
+      return false;
+    }
+  }
+}
+
+// Initialize database service
+const dbService = new DatabaseService();
+
+const RosterApp = () => {
+  // Configuration for different locations - easily customizable
+  const [appConfig, setAppConfig] = useState(() => {
+    // You can change this configuration for each location deployment
+    return {
+      companyName: "Shriajj Pty Ltd",
+      systemTitle: "Staff Roster Management System",
+      locations: ['Caroline Springs', 'Werribee Plaza', 'Point Cook', 'Geelong', 'Woodgrove'],
+      employees: ['Bhanush', 'Girish', 'Aravind', 'Vansh', 'Kashish', 'Sonam', 'Tejal', 'Anshul', 'Matt', 'Aswin'],
+      users: {
+        admin: 'shriajj2025',
+        manager: 'manager123',
+        supervisor: 'super2025'
+      },
+      developer: "Vrushali Hinge",
+      primaryColor: "#2563eb", // Blue - can be changed per location
+      // Location-specific settings can be added here
+      locationId: "main", // unique identifier for this location
+      timezone: "Australia/Melbourne"
+    };
+  });
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [currentUser, setCurrentUser] = useState('');
+  const [activeTab, setActiveTab] = useState('roster');
+  const [editMode, setEditMode] = useState(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState(new Date(2025, 7, 3));
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberPassword, setRememberPassword] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [syncStatus, setSyncStatus] = useState('synced'); // 'synced', 'syncing', 'offline'
+  
+  const validUsers = appConfig.users;
+
+  const [employees, setEmployees] = useState(appConfig.employees);
+  const [locations, setLocations] = useState(appConfig.locations);
+  
+  const [newEmployee, setNewEmployee] = useState('');
+  const [newLocation, setNewLocation] = useState('');
+  const [publicHolidays, setPublicHolidays] = useState({});
+
+  const getCurrentWeekDates = () => {
+    const days = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(currentWeekStart);
+      date.setDate(currentWeekStart.getDate() + i);
+      const dayName = dayNames[date.getDay()];
+      const day = date.getDate();
+      const month = monthNames[date.getMonth()];
+      days.push(`${dayName} ${day}-${month}`);
+    }
+    return days;
+  };
+
+  const getCurrentWeekString = () => {
+    const startDate = new Date(currentWeekStart);
+    const endDate = new Date(currentWeekStart);
+    endDate.setDate(startDate.getDate() + 6);
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const startStr = `${startDate.getDate()}-${monthNames[startDate.getMonth()]}`;
+    const endStr = `${endDate.getDate()}-${monthNames[endDate.getMonth()]}`;
+    
+    return `${startStr} to ${endStr}`;
+  };
+
+  const days = getCurrentWeekDates();
+  const currentWeek = getCurrentWeekString();
+
+  const navigateWeek = (direction) => {
+    setCurrentWeekStart(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(prev.getDate() + (direction * 7));
+      return newDate;
+    });
+  };
+
+  const getDefaultShift = () => ({
+    employee: '', 
+    scheduledStart: '09:00', 
+    scheduledEnd: '17:00',
+    actualStart: '',
+    actualEnd: '',
+    leaveType: '',
+    leaveHours: 0,
+    notes: ''
+  });
+
+  const [allRosterData, setAllRosterData] = useState(() => {
+    const weekKey = 'Aug-3-2025';
+    const initialData = {};
+    initialData[weekKey] = {
+      'Caroline Springs': {
+        'Sun 3-Aug': [{ 
+          employee: 'Bhanush', 
+          scheduledStart: '10:00', 
+          scheduledEnd: '17:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }],
+        'Mon 4-Aug': [{ 
+          employee: 'Girish', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }],
+        'Tue 5-Aug': [{ 
+          employee: 'Bhanush', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }],
+        'Wed 6-Aug': [{ 
+          employee: 'Girish', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }],
+        'Thu 7-Aug': [{ 
+          employee: 'Girish', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }],
+        'Fri 8-Aug': [{ 
+          employee: 'Aravind', 
+          scheduledStart: '11:00', 
+          scheduledEnd: '20:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }],
+        'Sat 9-Aug': [{ 
+          employee: 'Vansh', 
+          scheduledStart: '12:00', 
+          scheduledEnd: '17:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          leaveHours: 0,
+          notes: ''
+        }]
+      },
+      'Werribee Plaza': {
+        'Sun 3-Aug': [{ 
+          employee: 'Kashish', 
+          scheduledStart: '10:00', 
+          scheduledEnd: '17:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Mon 4-Aug': [{ 
+          employee: 'Kashish', 
+          scheduledStart: '09:15', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Tue 5-Aug': [{ 
+          employee: 'Kashish', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Wed 6-Aug': [{ 
+          employee: 'Sonam', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Thu 7-Aug': [{ 
+          employee: 'Sonam', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '20:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Fri 8-Aug': [{ 
+          employee: 'Tejal', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '16:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Sat 9-Aug': [{ 
+          employee: 'Kashish', 
+          scheduledStart: '09:20', 
+          scheduledEnd: '17:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }]
+      },
+      'Point Cook': {
+        'Sun 3-Aug': [{ 
+          employee: 'Tejal', 
+          scheduledStart: '10:00', 
+          scheduledEnd: '17:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Mon 4-Aug': [{ 
+          employee: 'Sonam', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Tue 5-Aug': [{ 
+          employee: 'Tejal', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Wed 6-Aug': [{ 
+          employee: 'Sonam', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:30',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Thu 7-Aug': [{ 
+          employee: 'Tejal', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '19:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Fri 8-Aug': [{ 
+          employee: 'Sonam', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '19:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }],
+        'Sat 9-Aug': [{ 
+          employee: 'Tejal', 
+          scheduledStart: '09:00', 
+          scheduledEnd: '17:00',
+          actualStart: '',
+          actualEnd: '',
+          leaveType: '',
+          notes: ''
+        }]
+      }
+    };
+    return initialData;
+  });
+
+  const getCurrentWeekKey = () => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[currentWeekStart.getMonth()];
+    const date = currentWeekStart.getDate();
+    const year = currentWeekStart.getFullYear();
+    return `${month}-${date}-${year}`;
+  };
+
+  const getDefaultRosterForWeek = (weekDays) => {
+    const defaultRoster = {};
+    locations.forEach(location => {
+      defaultRoster[location] = {};
+      weekDays.forEach(day => {
+        defaultRoster[location][day] = [];
+      });
+    });
+    return defaultRoster;
+  };
+
+  const roster = allRosterData[getCurrentWeekKey()] || getDefaultRosterForWeek(days);
+
+  // Load saved credentials on component mount
+  useEffect(() => {
+    // Save credentials using location-specific key
+    const savedCredentials = sessionStorage.getItem(`${appConfig.locationId}-saved-credentials`);
+    if (savedCredentials) {
+      try {
+        const { username, password, remember } = JSON.parse(savedCredentials);
+        if (remember) {
+          setLoginForm({ username, password });
+          setRememberPassword(true);
+        }
+      } catch (error) {
+        // Ignore errors in parsing saved credentials
+      }
+    }
+  }, []);
+
+  const handleLogin = () => {
+    const { username, password } = loginForm;
+    
+    if (validUsers[username] && validUsers[username] === password) {
+      setIsLoggedIn(true);
+      setCurrentUser(username);
+      setLoginError('');
+      
+      // Save credentials with location-specific key
+      if (rememberPassword) {
+        const credentialsToSave = {
+          username,
+          password,
+          remember: true
+        };
+        sessionStorage.setItem(`${appConfig.locationId}-saved-credentials`, JSON.stringify(credentialsToSave));
+      } else {
+        // Clear saved credentials if remember is unchecked
+        sessionStorage.removeItem(`${appConfig.locationId}-saved-credentials`);
+      }
+    } else {
+      setLoginError('Invalid username or password');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCurrentUser('');
+    setLoginForm({ username: '', password: '' });
+    setEditMode(false);
+    setActiveTab('roster');
+    setShowPassword(false);
+    setRememberPassword(false);
+  };
+
+  const addEmployee = async () => {
+    if (newEmployee.trim() && !employees.includes(newEmployee.trim())) {
+      const updatedEmployees = [...employees, newEmployee.trim()];
+      setEmployees(updatedEmployees);
+      setNewEmployee('');
+      
+      // Save to database
+      setSyncStatus('syncing');
+      const success = await dbService.saveEmployees(appConfig.locationId, updatedEmployees);
+      setSyncStatus(success ? 'synced' : 'offline');
+    }
+  };
+
+  const deleteEmployee = async (employeeName) => {
+    const updatedEmployees = employees.filter(emp => emp !== employeeName);
+    setEmployees(updatedEmployees);
+    
+    // Save to database
+    setSyncStatus('syncing');
+    const success = await dbService.saveEmployees(appConfig.locationId, updatedEmployees);
+    setSyncStatus(success ? 'synced' : 'offline');
+  };
+
+  const addLocation = async () => {
+    if (newLocation.trim() && !locations.includes(newLocation.trim())) {
+      const updatedLocations = [...locations, newLocation.trim()];
+      setLocations(updatedLocations);
+      setNewLocation('');
+      
+      // Save to database
+      setSyncStatus('syncing');
+      const success = await dbService.saveLocations(appConfig.locationId, updatedLocations);
+      setSyncStatus(success ? 'synced' : 'offline');
+    }
+  };
+
+  const deleteLocation = async (locationName) => {
+    const updatedLocations = locations.filter(loc => loc !== locationName);
+    setLocations(updatedLocations);
+    
+    // Save to database
+    setSyncStatus('syncing');
+    const success = await dbService.saveLocations(appConfig.locationId, updatedLocations);
+    setSyncStatus(success ? 'synced' : 'offline');
+  };
+
+  const togglePublicHoliday = (day) => {
+    setPublicHolidays(prev => ({
+      ...prev,
+      [day]: !prev[day]
+    }));
+  };
+
+  const calculateHours = (scheduledStart, scheduledEnd, actualStart, actualEnd, day, leaveType, leaveHours = 0, isPublicHoliday = false) => {
+    // Handle pure leave days (no work)
+    if (leaveType && (!actualStart && !actualEnd)) {
+      return { 
+        total: 0, 
+        regular: 0, 
+        overtime: 0, 
+        publicHoliday: 0,
+        annualLeave: leaveType === 'annual' ? (leaveHours || 8) : 0,
+        sickLeave: leaveType === 'sick' ? (leaveHours || 8) : 0,
+        publicHolidayLeave: leaveType === 'public' ? (leaveHours || 8) : 0
+      };
+    }
+    
+    const startTime = actualStart || scheduledStart;
+    const endTime = actualEnd || scheduledEnd;
+    
+    if (!startTime || !endTime) {
+      return { 
+        total: 0, 
+        regular: 0, 
+        overtime: 0, 
+        publicHoliday: 0,
+        annualLeave: 0,
+        sickLeave: 0,
+        publicHolidayLeave: 0
+      };
+    }
+    
+    const start = new Date(`2024-01-01 ${startTime}`);
+    const end = new Date(`2024-01-01 ${endTime}`);
+    let totalHours = (end - start) / (1000 * 60 * 60);
+    
+    if (totalHours <= 0) {
+      return { 
+        total: 0, 
+        regular: 0, 
+        overtime: 0, 
+        publicHoliday: 0,
+        annualLeave: 0,
+        sickLeave: 0,
+        publicHolidayLeave: 0
+      };
+    }
+    
+    // Deduct break time for shifts > 4 hours
+    let workingHours = totalHours > 4 ? totalHours - 0.5 : totalHours;
+    
+    // Initialize leave hours
+    let annualLeaveHours = 0;
+    let sickLeaveHours = 0;
+    let publicHolidayLeaveHours = 0;
+    
+    // Handle mixed work + leave scenarios
+    if (leaveType && leaveHours > 0) {
+      if (leaveType === 'annual') {
+        annualLeaveHours = leaveHours;
+      } else if (leaveType === 'sick') {
+        sickLeaveHours = leaveHours;
+      } else if (leaveType === 'public') {
+        publicHolidayLeaveHours = leaveHours;
+      }
+    }
+    
+    // Handle public holiday work (gets special rate) - FIXED: Now properly checks the parameter
+    if (isPublicHoliday && workingHours > 0) {
+      return {
+        total: workingHours,
+        regular: 0,
+        overtime: 0,
+        publicHoliday: workingHours,
+        annualLeave: annualLeaveHours,
+        sickLeave: sickLeaveHours,
+        publicHolidayLeave: publicHolidayLeaveHours
+      };
+    }
+    
+    // Regular work day calculations
+    const isThursdayOrFriday = day.includes('Thu') || day.includes('Fri');
+    const overtimeStart = new Date(`2024-01-01 18:00`);
+    
+    let regularHours = workingHours;
+    let overtimeHours = 0;
+    
+    // Calculate overtime for Thu/Fri after 6PM
+    if (isThursdayOrFriday && end > overtimeStart) {
+      const effectiveOvertimeStart = start > overtimeStart ? start : overtimeStart;
+      
+      if (effectiveOvertimeStart < end) {
+        const overtimeMinutes = (end - effectiveOvertimeStart) / (1000 * 60 * 60);
+        overtimeHours = overtimeMinutes;
+        regularHours = workingHours - overtimeHours;
+      }
+    }
+    
+    return {
+      total: workingHours,
+      regular: Math.max(0, regularHours),
+      overtime: Math.max(0, overtimeHours),
+      publicHoliday: 0,
+      annualLeave: annualLeaveHours,
+      sickLeave: sickLeaveHours,
+      publicHolidayLeave: publicHolidayLeaveHours
+    };
+  };
+
+  const updateShift = (location, day, shiftIndex, field, value) => {
+    const weekKey = getCurrentWeekKey();
+    setAllRosterData(prev => ({
+      ...prev,
+      [weekKey]: {
+        ...prev[weekKey],
+        [location]: {
+          ...prev[weekKey]?.[location],
+          [day]: prev[weekKey]?.[location]?.[day]?.map((shift, index) => 
+            index === shiftIndex ? { ...shift, [field]: value } : shift
+          ) || []
+        }
+      }
+    }));
+  };
+
+  const addShift = (location, day) => {
+    const weekKey = getCurrentWeekKey();
+    setAllRosterData(prev => ({
+      ...prev,
+      [weekKey]: {
+        ...prev[weekKey],
+        [location]: {
+          ...prev[weekKey]?.[location],
+          [day]: [...(prev[weekKey]?.[location]?.[day] || []), getDefaultShift()]
+        }
+      }
+    }));
+  };
+
+  const removeShift = (location, day, shiftIndex) => {
+    const weekKey = getCurrentWeekKey();
+    setAllRosterData(prev => ({
+      ...prev,
+      [weekKey]: {
+        ...prev[weekKey],
+        [location]: {
+          ...prev[weekKey]?.[location],
+          [day]: prev[weekKey]?.[location]?.[day]?.filter((_, index) => index !== shiftIndex) || []
+        }
+      }
+    }));
+  };
+
+  const getDailyHours = (employee, day) => {
+    let totalHours = 0;
+    let regularHours = 0;
+    let overtimeHours = 0;
+    let publicHolidayHours = 0;
+    let annualLeaveHours = 0;
+    let sickLeaveHours = 0;
+    let publicHolidayLeaveHours = 0;
+    
+    const currentRoster = allRosterData[getCurrentWeekKey()] || {};
+    const isPublicHoliday = publicHolidays[day]; // Pass the public holiday status
+    
+    locations.forEach(location => {
+      const dayShifts = currentRoster[location]?.[day] || [];
+      dayShifts.forEach(shift => {
+        if (shift.employee === employee) {
+          const hours = calculateHours(
+            shift.scheduledStart, 
+            shift.scheduledEnd, 
+            shift.actualStart, 
+            shift.actualEnd, 
+            day, 
+            shift.leaveType,
+            shift.leaveHours || 0,
+            isPublicHoliday // Pass the public holiday status
+          );
+          totalHours += hours.total;
+          regularHours += hours.regular;
+          overtimeHours += hours.overtime;
+          publicHolidayHours += hours.publicHoliday;
+          annualLeaveHours += hours.annualLeave;
+          sickLeaveHours += hours.sickLeave;
+          publicHolidayLeaveHours += hours.publicHolidayLeave;
+        }
+      });
+    });
+    
+    return { 
+      total: totalHours, 
+      regular: regularHours, 
+      overtime: overtimeHours, 
+      publicHoliday: publicHolidayHours,
+      annualLeave: annualLeaveHours,
+      sickLeave: sickLeaveHours,
+      publicHolidayLeave: publicHolidayLeaveHours
+    };
+  };
+
+  const getWeeklySummary = (employee) => {
+    let mondayToFridayRegular = 0;
+    let overtimeTotal = 0;
+    let saturdayTotal = 0;
+    let sundayTotal = 0;
+    let publicHolidayTotal = 0;
+    let annualLeaveTotal = 0;
+    let sickLeaveTotal = 0;
+    let publicHolidayLeaveTotal = 0;
+    let totalHours = 0;
+
+    days.forEach(day => {
+      const dayHours = getDailyHours(employee, day);
+      totalHours += dayHours.total;
+      publicHolidayTotal += dayHours.publicHoliday;
+      annualLeaveTotal += dayHours.annualLeave;
+      sickLeaveTotal += dayHours.sickLeave;
+      publicHolidayLeaveTotal += dayHours.publicHolidayLeave;
+      
+      if (day.includes('Sat')) {
+        saturdayTotal += dayHours.total;
+      } else if (day.includes('Sun')) {
+        sundayTotal += dayHours.total;
+      } else {
+        mondayToFridayRegular += dayHours.regular;
+        overtimeTotal += dayHours.overtime;
+      }
+    });
+
+    const mandatoryCategories = sundayTotal + saturdayTotal + overtimeTotal + publicHolidayTotal;
+    const mandatoryFromRegular = Math.min(mondayToFridayRegular, Math.max(0, 24 - mandatoryCategories));
+    const totalMandatory = mandatoryCategories + mandatoryFromRegular;
+    const remainingRegularHours = Math.max(0, mondayToFridayRegular - mandatoryFromRegular);
+    const calculatedTotal = totalMandatory + remainingRegularHours;
+
+    return {
+      mondayToFridayRegular,
+      overtime: overtimeTotal,
+      saturday: saturdayTotal,
+      sunday: sundayTotal,
+      publicHoliday: publicHolidayTotal,
+      annualLeave: annualLeaveTotal,
+      sickLeave: sickLeaveTotal,
+      publicHolidayLeave: publicHolidayLeaveTotal,
+      mandatoryHours: totalMandatory,
+      remainingRegularHours: remainingRegularHours,
+      total: calculatedTotal
+    };
+  };
+
+  const exportRosterData = () => {
+    const exportData = {
+      employees,
+      locations,
+      allRosterData,
+      publicHolidays,
+      exportDate: new Date().toISOString(),
+      weekRange: currentWeek
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${appConfig.companyName.replace(/\s+/g, '-')}-roster-${getCurrentWeekKey()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportWeeklyRosterForEmployees = () => {
+    // Create a clean roster data structure for employees
+    const employeeRoster = {};
+    
+    // Initialize each employee's schedule
+    employees.forEach(emp => {
+      employeeRoster[emp] = {};
+      days.forEach(day => {
+        employeeRoster[emp][day] = [];
+      });
+    });
+    
+    // Populate the roster data
+    const currentRoster = allRosterData[getCurrentWeekKey()] || {};
+    locations.forEach(location => {
+      days.forEach(day => {
+        const dayShifts = currentRoster[location]?.[day] || [];
+        dayShifts.forEach(shift => {
+          if (shift.employee) {
+            employeeRoster[shift.employee][day].push({
+              location: location,
+              scheduledStart: shift.scheduledStart,
+              scheduledEnd: shift.scheduledEnd,
+              actualStart: shift.actualStart,
+              actualEnd: shift.actualEnd,
+              leaveType: shift.leaveType,
+              leaveHours: shift.leaveHours,
+              notes: shift.notes,
+              isPublicHoliday: publicHolidays[day]
+            });
+          }
+        });
+      });
+    });
+
+    // Create HTML content for the roster
+    let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weekly Roster - ${currentWeek}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .company-name { color: ${appConfig.primaryColor}; font-size: 24px; font-weight: bold; }
+        .week-range { color: #6b7280; font-size: 18px; margin: 10px 0; }
+        .employee-section { margin-bottom: 30px; page-break-inside: avoid; }
+        .employee-name { background-color: ${appConfig.primaryColor}; color: white; padding: 10px; font-size: 18px; font-weight: bold; }
+        .schedule-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .schedule-table th, .schedule-table td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+        .schedule-table th { background-color: #f3f4f6; font-weight: bold; }
+        .day-off { color: #9ca3af; font-style: italic; }
+        .public-holiday { background-color: #fef2f2; }
+        .leave-annual { background-color: #f0fdf4; color: #166534; }
+        .leave-sick { background-color: #fefce8; color: #a16207; }
+        .leave-public { background-color: #fef2f2; color: #dc2626; }
+        .notes { font-size: 12px; color: #6b7280; margin-top: 5px; }
+        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #6b7280; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-name">${appConfig.companyName.toUpperCase()}</div>
+        <div class="week-range">Weekly Roster: ${currentWeek}</div>
+        <div style="font-size: 14px; color: #6b7280;">Generated on ${new Date().toLocaleDateString()}</div>
+    </div>
+
+    ${employees.map(employee => {
+      const hasShifts = days.some(day => employeeRoster[employee][day].length > 0);
+      if (!hasShifts) return '';
+      
+      return `
+        <div class="employee-section">
+            <div class="employee-name">${employee}</div>
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Day</th>
+                        <th style="width: 20%;">Location</th>
+                        <th style="width: 15%;">Scheduled</th>
+                        <th style="width: 15%;">Actual</th>
+                        <th style="width: 15%;">Status</th>
+                        <th style="width: 20%;">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${days.map(day => {
+                      const dayShifts = employeeRoster[employee][day];
+                      const isPublicHoliday = publicHolidays[day];
+                      
+                      if (dayShifts.length === 0) {
+                        return `
+                          <tr class="${isPublicHoliday ? 'public-holiday' : ''}">
+                              <td><strong>${day.split(' ')[0]}</strong><br><small>${day.split(' ')[1]}</small></td>
+                              <td class="day-off">Day Off</td>
+                              <td class="day-off">-</td>
+                              <td class="day-off">-</td>
+                              <td class="day-off">${isPublicHoliday ? '🎉 Public Holiday' : 'Rest Day'}</td>
+                              <td class="day-off">-</td>
+                          </tr>
+                        `;
+                      }
+                      
+                      return dayShifts.map((shift, index) => {
+                        const leaveClass = shift.leaveType === 'annual' ? 'leave-annual' :
+                                         shift.leaveType === 'sick' ? 'leave-sick' :
+                                         shift.leaveType === 'public' ? 'leave-public' : '';
+                        
+                        const statusText = shift.leaveType === 'annual' ? '🏖️ Annual Leave' :
+                                         shift.leaveType === 'sick' ? '🤒 Sick Leave' :
+                                         shift.leaveType === 'public' ? '🎉 Public Holiday Leave' :
+                                         isPublicHoliday ? '🎉 Public Holiday Work' : 'Working';
+                        
+                        return `
+                          <tr class="${leaveClass} ${isPublicHoliday ? 'public-holiday' : ''}">
+                              ${index === 0 ? `<td rowspan="${dayShifts.length}"><strong>${day.split(' ')[0]}</strong><br><small>${day.split(' ')[1]}</small></td>` : ''}
+                              <td>${shift.location}</td>
+                              <td>${shift.scheduledStart && shift.scheduledEnd ? `${shift.scheduledStart} - ${shift.scheduledEnd}` : '-'}</td>
+                              <td>${shift.actualStart && shift.actualEnd ? `${shift.actualStart} - ${shift.actualEnd}` : 
+                                    (shift.actualStart || shift.actualEnd) ? `${shift.actualStart || '?'} - ${shift.actualEnd || '?'}` : '-'}</td>
+                              <td>${statusText}${shift.leaveHours ? ` (${shift.leaveHours}h)` : ''}</td>
+                              <td>${shift.notes || '-'}</td>
+                          </tr>
+                        `;
+                      }).join('');
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+      `;
+    }).join('')}
+
+    <div class="footer">
+        <p><strong>Important Notes:</strong></p>
+        <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
+            <li>Please arrive 10 minutes before your scheduled start time</li>
+            <li>Contact your supervisor immediately if you cannot attend your scheduled shift</li>
+            <li>Public holidays are marked with 🎉 and may have different pay rates</li>
+            <li>Any changes to this roster must be approved by management</li>
+        </ul>
+        <br>
+        <p>© 2025 Shriajj Pty Ltd - Staff Roster Management System</p>
+    </div>
+</body>
+</html>
+    `;
+
+    // Create and download the HTML file
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${appConfig.companyName.replace(/\s+/g, '-')}-Weekly-Roster-${getCurrentWeekKey()}-Employees.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportCombinedWeeklyRoster = () => {
+    const currentRoster = allRosterData[getCurrentWeekKey()] || {};
+    
+    // Create HTML content that matches the screen layout
+    let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weekly Combined Roster - ${currentWeek}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .company-name { color: #2563eb; font-size: 20px; font-weight: bold; }
+        .week-range { color: #6b7280; font-size: 16px; margin: 10px 0; }
+        .roster-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .roster-table th, .roster-table td { border: 1px solid #d1d5db; padding: 6px; text-align: center; font-size: 11px; }
+        .roster-table th { background-color: #f3f4f6; font-weight: bold; }
+        .location-header { background-color: #e5e7eb; font-weight: bold; text-align: left; padding: 8px; }
+        .shift-cell { min-height: 60px; vertical-align: top; padding: 4px; }
+        .employee-name { font-weight: bold; color: #1f2937; margin-bottom: 2px; }
+        .shift-time { color: #6b7280; font-size: 10px; }
+        .actual-time { color: #2563eb; font-size: 10px; font-weight: bold; }
+        .leave-indicator { background-color: #fef3c7; color: #92400e; padding: 1px 3px; border-radius: 2px; font-size: 9px; }
+        .leave-annual { background-color: #d1fae5; color: #065f46; }
+        .leave-sick { background-color: #fef3c7; color: #92400e; }
+        .leave-public { background-color: #fee2e2; color: #991b1b; }
+        .public-holiday-bg { background-color: #fef2f2; }
+        .notes-text { font-style: italic; color: #6b7280; font-size: 9px; margin-top: 2px; }
+        .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #6b7280; }
+        @media print { 
+            .no-print { display: none; }
+            body { margin: 10px; }
+            .roster-table { font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-name">${appConfig.companyName.toUpperCase()}</div>
+        <div class="week-range">Weekly Combined Roster: ${currentWeek}</div>
+        <div style="font-size: 12px; color: #6b7280;">Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
+    </div>
+
+    <table class="roster-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Location</th>
+                ${days.map(day => {
+                  const isPublicHoliday = publicHolidays[day];
+                  return `<th class="${isPublicHoliday ? 'public-holiday-bg' : ''}" style="width: 12.5%;">${day}${isPublicHoliday ? ' (PH)' : ''}</th>`;
+                }).join('')}
+            </tr>
+        </thead>
+        <tbody>
+            ${locations.map((location, locationIndex) => `
+                <tr class="${locationIndex % 2 === 0 ? '' : ''}">
+                    <td class="location-header">${location}</td>
+                    ${days.map(day => {
+                      const dayShifts = currentRoster[location]?.[day] || [];
+                      const isPublicHoliday = publicHolidays[day];
+                      
+                      if (dayShifts.length === 0) {
+                        return `<td class="shift-cell ${isPublicHoliday ? 'public-holiday-bg' : ''}">-</td>`;
+                      }
+                      
+                      const shiftsHtml = dayShifts.map(shift => {
+                        if (!shift.employee) return '';
+                        
+                        let content = `<div class="employee-name">${shift.employee}</div>`;
+                        
+                        if (shift.leaveType) {
+                          const leaveClass = shift.leaveType === 'annual' ? 'leave-annual' :
+                                           shift.leaveType === 'sick' ? 'leave-sick' :
+                                           shift.leaveType === 'public' ? 'leave-public' : 'leave-indicator';
+                          
+                          const leaveText = shift.leaveType === 'annual' ? 'AL' :
+                                          shift.leaveType === 'sick' ? 'SL' :
+                                          shift.leaveType === 'public' ? 'PHL' : shift.leaveType;
+                          
+                          content += `<div class="leave-indicator ${leaveClass}">${leaveText}${shift.leaveHours ? ` (${shift.leaveHours}h)` : ''}</div>`;
+                          
+                          if (shift.scheduledStart && shift.scheduledEnd) {
+                            content += `<div class="shift-time">Scheduled: ${shift.scheduledStart}-${shift.scheduledEnd}</div>`;
+                          }
+                        } else {
+                          if (shift.scheduledStart && shift.scheduledEnd) {
+                            content += `<div class="shift-time">Scheduled: ${shift.scheduledStart}-${shift.scheduledEnd}</div>`;
+                          }
+                          
+                          if (shift.actualStart || shift.actualEnd) {
+                            content += `<div class="actual-time">Actual: ${shift.actualStart || '?'}-${shift.actualEnd || '?'}</div>`;
+                          }
+                        }
+                        
+                        if (shift.notes) {
+                          content += `<div class="notes-text">Notes: ${shift.notes}</div>`;
+                        }
+                        
+                        return `<div style="margin-bottom: 8px;">${content}</div>`;
+                      }).join('');
+                      
+                      return `<td class="shift-cell ${isPublicHoliday ? 'public-holiday-bg' : ''}">${shiftsHtml}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p><strong>Legend:</strong> Scheduled | Actual | Annual Leave (AL) | Sick Leave (SL) | Public Holiday (PH) | Notes</p>
+        <p><strong>Public holidays are highlighted in pink background</strong></p>
+        <br>
+        <p>© 2025 ${appConfig.companyName} - Weekly Combined Roster | Generated from ${appConfig.systemTitle}</p>
+        <p style="margin-top: 10px; font-style: italic; color: #9ca3af;">App designed and developed by <strong style="color: ${appConfig.primaryColor};">${appConfig.developer}</strong></p>
+    </div>
+</body>
+</html>
+    `;
+
+    // Create and download the HTML file
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${appConfig.companyName.replace(/\s+/g, '-')}-Combined-Weekly-Roster-${getCurrentWeekKey()}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const copyPreviousWeek = () => {
+    const currentKey = getCurrentWeekKey();
+    const prevWeekStart = new Date(currentWeekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[prevWeekStart.getMonth()];
+    const date = prevWeekStart.getDate();
+    const year = prevWeekStart.getFullYear();
+    const prevKey = `${month}-${date}-${year}`;
+    
+    if (allRosterData[prevKey]) {
+      const prevData = allRosterData[prevKey];
+      const newRosterData = {};
+      
+      Object.keys(prevData).forEach(location => {
+        newRosterData[location] = {};
+        Object.keys(prevData[location]).forEach((oldDay, dayIndex) => {
+          const newDay = days[dayIndex];
+          if (newDay) {
+            newRosterData[location][newDay] = prevData[location][oldDay].map(shift => ({
+              ...shift,
+              actualStart: '',
+              actualEnd: '',
+              leaveType: shift.leaveType === 'annual' ? '' : shift.leaveType,
+              notes: ''
+            }));
+          }
+        });
+      });
+      
+      setAllRosterData(prev => ({
+        ...prev,
+        [currentKey]: newRosterData
+      }));
+      
+      alert('Previous week roster copied! Actual times and notes cleared for new week.');
+    } else {
+      alert('No previous week data found to copy.');
+    }
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="bg-blue-600 text-white p-4 rounded-lg mb-4">
+              <h1 className="text-2xl font-bold">{appConfig.companyName}</h1>
+              <p className="text-blue-100 text-sm">{appConfig.systemTitle}</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <User className="inline w-4 h-4 mr-2" />
+                Username
+              </label>
+              <input
+                type="text"
+                value={loginForm.username}
+                onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your username"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Lock className="inline w-4 h-4 mr-2" />
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="rememberPassword"
+                checked={rememberPassword}
+                onChange={(e) => setRememberPassword(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+              />
+              <label htmlFor="rememberPassword" className="ml-2 text-sm text-gray-700">
+                Remember my password
+              </label>
+            </div>
+
+            {loginError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {loginError}
+              </div>
+            )}
+
+            <button
+              onClick={handleLogin}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Sign In
+            </button>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
+            <p>© 2025 <strong>{appConfig.companyName}</strong>. All rights reserved.</p>
+            <p className="mt-1">App designed and crafted by <strong>{appConfig.developer}</strong></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 text-white p-2 rounded-lg">
+              <Calendar size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">{appConfig.companyName} - Roster Management</h1>
+              <div className="flex items-center gap-4">
+                <span className="text-lg text-gray-600">{currentWeek}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => navigateWeek(-1)}
+                    className="p-1 rounded hover:bg-gray-200 text-gray-600"
+                    title="Previous Week"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    onClick={() => navigateWeek(1)}
+                    className="p-1 rounded hover:bg-gray-200 text-gray-600"
+                    title="Next Week"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                <span>Logged in as: {currentUser}</span>
+                <div className="flex items-center gap-1">
+                  {isOnline ? <Wifi size={16} className="text-green-500" /> : <WifiOff size={16} className="text-red-500" />}
+                  <span className={`${isOnline ? 'text-green-600' : 'text-red-600'}`}>
+                    {syncStatus === 'syncing' ? 'Syncing...' : 
+                     syncStatus === 'synced' ? 'Synced' : 
+                     syncStatus === 'offline' ? 'Offline' : 'Unknown'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white rounded-lg shadow-md mb-6">
+        <div className="flex border-b">
+          {[
+            { id: 'roster', label: 'Weekly Roster', icon: Calendar },
+            { id: 'employees', label: 'Manage Employees', icon: Users },
+            { id: 'locations', label: 'Manage Locations', icon: Building }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
+            >
+              <tab.icon size={18} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Roster Tab */}
+      {activeTab === 'roster' && (
+        <>
+          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">Weekly Roster - {currentWeek}</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyPreviousWeek}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700 text-sm"
+                >
+                  <Upload size={16} />
+                  Copy Previous Week
+                </button>
+                <button
+                  onClick={exportCombinedWeeklyRoster}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 text-sm"
+                >
+                  <Download size={16} />
+                  Download Combined Roster
+                </button>
+                <button
+                  onClick={exportWeeklyRosterForEmployees}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 text-sm"
+                >
+                  <Download size={16} />
+                  Export for Employees
+                </button>
+                <button
+                  onClick={exportRosterData}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 text-sm"
+                >
+                  <Download size={16} />
+                  Export Data (JSON)
+                </button>
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${
+                    editMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {editMode ? <Save size={18} /> : <Edit2 size={18} />}
+                  {editMode ? 'Save Changes' : 'Edit Roster'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+            <h3 className="font-semibold text-gray-800 mb-3">Public Holidays</h3>
+            <div className="flex flex-wrap gap-2">
+              {days.map(day => (
+                <button
+                  key={day}
+                  onClick={() => togglePublicHoliday(day)}
+                  className={`px-3 py-1 rounded text-sm font-medium ${
+                    publicHolidays[day]
+                      ? 'bg-red-100 text-red-800 border-2 border-red-300'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {day.split(' ')[0]} {publicHolidays[day] ? '🎉' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-3 text-left font-semibold text-gray-700 border-r">Location</th>
+                    {days.map(day => (
+                      <th key={day} className={`p-3 text-center font-semibold text-gray-700 border-r min-w-32 ${
+                        publicHolidays[day] ? 'bg-red-50' : ''
+                      }`}>
+                        {day} {publicHolidays[day] && '🎉'}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {locations.map((location, locationIndex) => (
+                    <tr key={location} className={locationIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                      <td className="p-3 font-medium text-gray-800 border-r border-b bg-gray-100">
+                        {location}
+                      </td>
+                      {days.map(day => (
+                        <td key={day} className="p-2 border-r border-b align-top">
+                          <div className="space-y-2">
+                            {(roster[location]?.[day] || []).map((shift, shiftIndex) => {
+                              const bgColor = publicHolidays[day] ? 'bg-red-50' : 
+                                shift.leaveType === 'annual' ? 'bg-green-50' :
+                                shift.leaveType === 'sick' ? 'bg-yellow-50' :
+                                shift.leaveType === 'public' ? 'bg-red-50' :
+                                'bg-blue-50';
+                                
+                              return (
+                                <div key={shiftIndex} className={`p-2 rounded border ${bgColor}`}>
+                                  {editMode ? (
+                                    <div className="space-y-2">
+                                      <select
+                                        value={shift.employee}
+                                        onChange={(e) => updateShift(location, day, shiftIndex, 'employee', e.target.value)}
+                                        className="w-full text-xs border rounded px-1 py-1"
+                                      >
+                                        <option value="">Select Employee</option>
+                                        {employees.map(emp => (
+                                          <option key={emp} value={emp}>{emp}</option>
+                                        ))}
+                                      </select>
+                                      
+                                      <select
+                                        value={shift.leaveType}
+                                        onChange={(e) => updateShift(location, day, shiftIndex, 'leaveType', e.target.value)}
+                                        className="w-full text-xs border rounded px-1 py-1"
+                                      >
+                                        <option value="">Working (No Leave)</option>
+                                        <option value="annual">Annual Leave</option>
+                                        <option value="sick">Sick Leave</option>
+                                        <option value="public">Public Holiday Leave</option>
+                                      </select>
+
+                                      {/* Show leave hours input when leave type is selected */}
+                                      {shift.leaveType && (
+                                        <div>
+                                          <label className="text-xs text-gray-600">Leave Hours</label>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            max="12"
+                                            step="0.5"
+                                            value={shift.leaveHours || 0}
+                                            onChange={(e) => updateShift(location, day, shiftIndex, 'leaveHours', parseFloat(e.target.value) || 0)}
+                                            className="w-full text-xs border rounded px-1 py-1"
+                                            placeholder="Hours of leave"
+                                          />
+                                        </div>
+                                      )}
+
+                                      <div className="grid grid-cols-2 gap-1">
+                                        <div>
+                                          <label className="text-xs text-gray-600">Scheduled</label>
+                                          <div className="space-y-1">
+                                            <input
+                                              type="time"
+                                              value={shift.scheduledStart}
+                                              onChange={(e) => updateShift(location, day, shiftIndex, 'scheduledStart', e.target.value)}
+                                              className="w-full text-xs border rounded px-1 py-1"
+                                              placeholder="Start"
+                                            />
+                                            <input
+                                              type="time"
+                                              value={shift.scheduledEnd}
+                                              onChange={(e) => updateShift(location, day, shiftIndex, 'scheduledEnd', e.target.value)}
+                                              className="w-full text-xs border rounded px-1 py-1"
+                                              placeholder="End"
+                                            />
+                                          </div>
+                                        </div>
+                                        
+                                        <div>
+                                          <label className="text-xs text-gray-600">Actual</label>
+                                          <div className="space-y-1">
+                                            <input
+                                              type="time"
+                                              value={shift.actualStart}
+                                              onChange={(e) => updateShift(location, day, shiftIndex, 'actualStart', e.target.value)}
+                                              className="w-full text-xs border rounded px-1 py-1"
+                                              placeholder="Start"
+                                            />
+                                            <input
+                                              type="time"
+                                              value={shift.actualEnd}
+                                              onChange={(e) => updateShift(location, day, shiftIndex, 'actualEnd', e.target.value)}
+                                              className="w-full text-xs border rounded px-1 py-1"
+                                              placeholder="End"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      <textarea
+                                        value={shift.notes}
+                                        onChange={(e) => updateShift(location, day, shiftIndex, 'notes', e.target.value)}
+                                        placeholder={shift.leaveType ? "Leave notes (reason, doctor cert, etc.)" : "Shift notes"}
+                                        className="w-full text-xs border rounded px-1 py-1 h-8"
+                                      />
+                                      
+                                      {/* Show calculated hours breakdown */}
+                                      {(shift.actualStart && shift.actualEnd) || shift.leaveType ? (
+                                        <div className="text-xs bg-gray-50 p-1 rounded">
+                                          {(() => {
+                                            const isPublicHoliday = publicHolidays[day];
+                                            const hours = calculateHours(
+                                              shift.scheduledStart, 
+                                              shift.scheduledEnd, 
+                                              shift.actualStart, 
+                                              shift.actualEnd, 
+                                              day, 
+                                              shift.leaveType,
+                                              shift.leaveHours || 0,
+                                              isPublicHoliday
+                                            );
+                                            return (
+                                              <div className="flex flex-wrap gap-1 text-xs">
+                                                {isPublicHoliday && <span className="bg-red-200 px-1 rounded">🎉 PH Day</span>}
+                                                {hours.total > 0 && <span className="bg-blue-100 px-1 rounded">Work: {hours.total.toFixed(1)}h</span>}
+                                                {hours.regular > 0 && <span className="bg-blue-50 px-1 rounded">Reg: {hours.regular.toFixed(1)}h</span>}
+                                                {hours.overtime > 0 && <span className="bg-orange-100 px-1 rounded">OT: {hours.overtime.toFixed(1)}h</span>}
+                                                {hours.publicHoliday > 0 && <span className="bg-red-100 px-1 rounded">PH: {hours.publicHoliday.toFixed(1)}h</span>}
+                                                {hours.annualLeave > 0 && <span className="bg-green-100 px-1 rounded">AL: {hours.annualLeave.toFixed(1)}h</span>}
+                                                {hours.sickLeave > 0 && <span className="bg-yellow-100 px-1 rounded">SL: {hours.sickLeave.toFixed(1)}h</span>}
+                                                {hours.publicHolidayLeave > 0 && <span className="bg-red-100 px-1 rounded">PHL: {hours.publicHolidayLeave.toFixed(1)}h</span>}
+                                              </div>
+                                            );
+                                          })()}
+                                        </div>
+                                      ) : null}
+                                      
+                                      <button
+                                        onClick={() => removeShift(location, day, shiftIndex)}
+                                        className="text-red-500 hover:text-red-700"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      {shift.leaveType ? (
+                                        <div>
+                                          <div className="font-medium text-sm text-gray-800">{shift.employee}</div>
+                                          <div className={`text-xs font-medium mt-1 ${
+                                            shift.leaveType === 'annual' ? 'text-green-700' :
+                                            shift.leaveType === 'sick' ? 'text-yellow-700' :
+                                            shift.leaveType === 'public' ? 'text-red-700' :
+                                            'text-gray-600'
+                                          }`}>
+                                            {shift.leaveType === 'annual' ? '🏖️ Annual Leave' :
+                                             shift.leaveType === 'sick' ? '🤒 Sick Leave' :
+                                             shift.leaveType === 'public' ? '🎉 Public Holiday' :
+                                             shift.leaveType}
+                                          </div>
+                                          {(shift.scheduledStart && shift.scheduledEnd) && (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                              📅 Scheduled: {shift.scheduledStart} - {shift.scheduledEnd}
+                                            </div>
+                                          )}
+                                          {shift.notes && (
+                                            <div className="text-xs text-gray-500 italic mt-1">
+                                              💬 {shift.notes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div className="font-medium text-sm text-gray-800">{shift.employee}</div>
+                                          <div className="text-xs text-gray-600">
+                                            📅 {shift.scheduledStart} - {shift.scheduledEnd}
+                                          </div>
+                                          {(shift.actualStart || shift.actualEnd) && (
+                                            <div className="text-xs text-blue-600 font-medium">
+                                              ⏰ {shift.actualStart || '?'} - {shift.actualEnd || '?'}
+                                            </div>
+                                          )}
+                                          {shift.notes && (
+                                            <div className="text-xs text-gray-500 italic mt-1">
+                                              💬 {shift.notes}
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {editMode && (
+                              <button
+                                onClick={() => addShift(location, day)}
+                                className="w-full py-1 border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-blue-400 flex items-center justify-center gap-1"
+                              >
+                                <Plus size={14} />
+                                <span className="text-xs">Add</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Weekly Summary */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Weekly Hours Summary by Pay Rate</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-2 text-left font-semibold text-gray-700 border-r">Employee</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-blue-50">Regular</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-orange-50">Overtime</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-indigo-50">Saturday</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-purple-50">Sunday</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-red-50">PH Work</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-green-50">AL</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-yellow-50">SL</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-pink-50">PHL</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-cyan-50">Mandatory (24h)</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 border-r bg-gray-50">Remaining Reg</th>
+                    <th className="p-2 text-center font-semibold text-gray-700 bg-emerald-50">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((employee, index) => {
+                    const summary = getWeeklySummary(employee);
+                    return (
+                      <tr key={employee} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                        <td className="p-2 font-medium text-gray-800 border-r">{employee}</td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-blue-100 text-blue-900">
+                            {summary.mondayToFridayRegular.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-orange-100 text-orange-900">
+                            {summary.overtime.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-indigo-100 text-indigo-900">
+                            {summary.saturday.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-purple-100 text-purple-900">
+                            {summary.sunday.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-red-100 text-red-900">
+                            {summary.publicHoliday.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-green-100 text-green-900">
+                            {summary.annualLeave.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-yellow-100 text-yellow-900">
+                            {summary.sickLeave.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-pink-100 text-pink-900">
+                            {summary.publicHolidayLeave.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-cyan-100 text-cyan-900">
+                            {summary.mandatoryHours.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center border-r">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-gray-100 text-gray-900">
+                            {summary.remainingRegularHours.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center">
+                          <span className="px-2 py-1 rounded text-sm font-bold bg-emerald-100 text-emerald-900">
+                            {summary.total.toFixed(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Daily Hours Breakdown */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Daily Hours Breakdown - {currentWeek}</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-2 text-left font-semibold text-gray-700 border-r">Employee</th>
+                    {days.map(day => {
+                      const dayName = day.split(' ')[0];
+                      const isSaturday = dayName === 'Sat';
+                      const isSunday = dayName === 'Sun';
+                      const bgColor = isSaturday ? 'bg-indigo-50' : isSunday ? 'bg-purple-50' : 'bg-blue-50';
+                      
+                      return (
+                        <th key={day} className={`p-2 text-center font-semibold text-gray-700 border-r ${bgColor}`}>
+                          <div>{dayName}</div>
+                          <div className="text-xs font-normal text-gray-500">{day.split(' ')[1]}</div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((employee, index) => (
+                    <tr key={employee} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                      <td className="p-2 font-medium text-gray-800 border-r">{employee}</td>
+                      {days.map(day => {
+                        const dayHours = getDailyHours(employee, day);
+                        const dayName = day.split(' ')[0];
+                        const isSaturday = dayName === 'Sat';
+                        const isSunday = dayName === 'Sun';
+                        const isWeekend = isSaturday || isSunday;
+                        
+                        return (
+                          <td key={day} className="p-2 text-center border-r">
+                            {dayHours.total === 0 ? (
+                              <span className="text-gray-400 text-xs">-</span>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className={`px-2 py-1 rounded text-sm font-bold ${
+                                  isSaturday ? 'bg-indigo-100 text-indigo-900' : 
+                                  isSunday ? 'bg-purple-100 text-purple-900' : 
+                                  'bg-blue-100 text-blue-900'
+                                }`}>
+                                  {dayHours.total.toFixed(1)}h
+                                </div>
+                                
+                                {!isWeekend && (
+                                  <div className="space-y-0.5">
+                                    {dayHours.regular > 0 && (
+                                      <div className="text-xs bg-blue-50 text-blue-800 px-1 py-0.5 rounded">
+                                        Reg: {dayHours.regular.toFixed(1)}h
+                                      </div>
+                                    )}
+                                    {dayHours.overtime > 0 && (
+                                      <div className="text-xs bg-orange-100 text-orange-800 px-1 py-0.5 rounded font-medium">
+                                        OT: {dayHours.overtime.toFixed(1)}h
+                                      </div>
+                                    )}
+                                    {dayHours.publicHoliday > 0 && (
+                                      <div className="text-xs bg-red-100 text-red-800 px-1 py-0.5 rounded font-medium">
+                                        PH: {dayHours.publicHoliday.toFixed(1)}h
+                                      </div>
+                                    )}
+                                    {dayHours.annualLeave > 0 && (
+                                      <div className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded font-medium">
+                                        AL: {dayHours.annualLeave.toFixed(1)}h
+                                      </div>
+                                    )}
+                                    {dayHours.sickLeave > 0 && (
+                                      <div className="text-xs bg-yellow-100 text-yellow-800 px-1 py-0.5 rounded font-medium">
+                                        SL: {dayHours.sickLeave.toFixed(1)}h
+                                      </div>
+                                    )}
+                                    {dayHours.publicHolidayLeave > 0 && (
+                                      <div className="text-xs bg-pink-100 text-pink-800 px-1 py-0.5 rounded font-medium">
+                                        PHL: {dayHours.publicHolidayLeave.toFixed(1)}h
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {isWeekend && dayHours.total > 0 && (
+                                  <div className="text-xs text-gray-600">
+                                    {isSaturday ? 'Sat Rate' : 'Sun Rate'}
+                                  </div>
+                                )}
+                                
+                                {publicHolidays[day] && (
+                                  <div className="text-xs text-red-600">🎉 Holiday</div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="mt-4 p-3 bg-gray-50 rounded border">
+              <h4 className="font-semibold text-gray-800 mb-2 text-sm">Legend:</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-blue-100 rounded"></div>
+                  <span>Regular Hours (Mon-Fri)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-orange-100 rounded"></div>
+                  <span>Overtime (Thu/Fri 6PM+)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-indigo-100 rounded"></div>
+                  <span>Saturday Hours</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-purple-100 rounded"></div>
+                  <span>Sunday Hours</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-red-100 rounded"></div>
+                  <span>Public Holiday Work</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-100 rounded"></div>
+                  <span>Annual Leave (AL)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-yellow-100 rounded"></div>
+                  <span>Sick Leave (SL)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-pink-100 rounded"></div>
+                  <span>Public Holiday Leave (PHL)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Employee Management Tab */}
+      {activeTab === 'employees' && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Manage Employees</h2>
+          
+          <div className="mb-6">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newEmployee}
+                onChange={(e) => setNewEmployee(e.target.value)}
+                placeholder="Enter employee name"
+                className="flex-1 p-3 border border-gray-300 rounded-lg"
+              />
+              <button
+                onClick={addEmployee}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Add Employee
+              </button>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {employees.map(employee => (
+              <div key={employee} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                <span className="font-medium">{employee}</span>
+                <button
+                  onClick={() => deleteEmployee(employee)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Location Management Tab */}
+      {activeTab === 'locations' && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Manage Locations</h2>
+          
+          <div className="mb-6">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newLocation}
+                onChange={(e) => setNewLocation(e.target.value)}
+                placeholder="Enter location name"
+                className="flex-1 p-3 border border-gray-300 rounded-lg"
+              />
+              <button
+                onClick={addLocation}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Add Location
+              </button>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {locations.map(location => (
+              <div key={location} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                <span className="font-medium">{location}</span>
+                <button
+                  onClick={() => deleteLocation(location)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="mt-8 pt-6 border-t border-gray-200 text-center text-sm text-gray-500 bg-white rounded-lg p-4">
+        <p>© 2025 <strong>{appConfig.companyName}</strong>. All rights reserved.</p>
+        <p className="mt-1">App designed and crafted by <strong>{appConfig.developer}</strong></p>
+      </div>
+    </div>
+  );
+};
+
+export default RosterApp;
