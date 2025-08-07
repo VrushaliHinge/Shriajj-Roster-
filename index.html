@@ -3273,13 +3273,19 @@
         }
 
         function loadRememberedLogin() {
-            const rememberedUsername = localStorage.getItem('rememberedUsername');
-            const rememberedPassword = localStorage.getItem('rememberedPassword');
-            
-            if (rememberedUsername && rememberedPassword) {
-                document.getElementById('username').value = rememberedUsername;
-                document.getElementById('password').value = rememberedPassword;
-                document.getElementById('rememberPassword').checked = true;
+            try {
+                const savedCredentials = sessionStorage.getItem(`${appState.appConfig.locationId}-saved-credentials`);
+                if (savedCredentials) {
+                    const credentials = JSON.parse(savedCredentials);
+                    if (credentials.remember) {
+                        document.getElementById('username').value = credentials.username;
+                        document.getElementById('password').value = credentials.password;
+                        document.getElementById('rememberPassword').checked = true;
+                        console.log('✅ Loaded remembered login credentials');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load remembered login:', error);
             }
         }
         
@@ -3376,6 +3382,7 @@
         // Start the application when the page loads
         document.addEventListener('DOMContentLoaded', () => {
             initializeApp();
+            loadRememberedLogin(); // Load saved credentials
             setTimeout(() => {
                 initializeSampleData();
                 renderRosterGrid();
