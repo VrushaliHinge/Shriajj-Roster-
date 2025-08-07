@@ -2548,11 +2548,13 @@
 
         function copyPreviousWeek() {
             const currentWeekKey = getCurrentWeekKey();
+            const currentWeekDays = getCurrentWeekDates();
             
             // Navigate to previous week to get its data
             navigateWeek('prev');
             const previousWeekKey = getCurrentWeekKey();
             const previousWeekData = appState.allRosterData[previousWeekKey] || {};
+            const previousWeekDays = getCurrentWeekDates();
             
             // Navigate back to current week
             navigateWeek('next');
@@ -2566,18 +2568,22 @@
             const confirmCopy = confirm(`Copy ${Object.keys(previousWeekData).length} employee schedules from previous week as a template for current week?`);
             if (!confirmCopy) return;
             
-            // Copy previous week data to current week (remove actual start/end times)
+            // Copy previous week data to current week with updated day names
             const templateData = {};
             Object.keys(previousWeekData).forEach(employee => {
                 templateData[employee] = {};
-                Object.keys(previousWeekData[employee]).forEach(day => {
-                    templateData[employee][day] = previousWeekData[employee][day].map(shift => ({
-                        ...shift,
-                        actualStart: '', // Clear actual times
-                        actualEnd: '',
-                        notes: '', // Clear notes
-                        leaveHours: 0 // Reset leave hours
-                    }));
+                Object.keys(previousWeekData[employee]).forEach((oldDay, dayIndex) => {
+                    // Map old day to new day based on position in week
+                    const newDay = currentWeekDays[dayIndex] || currentWeekDays[previousWeekDays.indexOf(oldDay)];
+                    if (newDay) {
+                        templateData[employee][newDay] = previousWeekData[employee][oldDay].map(shift => ({
+                            ...shift,
+                            actualStart: '', // Clear actual times
+                            actualEnd: '',
+                            notes: '', // Clear notes
+                            leaveHours: 0 // Reset leave hours
+                        }));
+                    }
                 });
             });
             
