@@ -681,8 +681,8 @@
                             <button 
                                 type="button" 
                                 id="togglePassword"
-                                class="absolute right-3 inset-y-0 text-gray-400 hover:text-gray-600"
-                                style="top: 50%; transform: translateY(-50%);"
+                                class="absolute right-3 text-gray-400 hover:text-gray-600 cursor-pointer"
+                                style="top: 50%; transform: translateY(-50%); z-index: 10;"
                             >
                                 <i data-lucide="eye-off" class="w-5 h-5"></i>
                             </button>
@@ -1592,9 +1592,15 @@
                 if (savedCredentials) {
                     const { username, password, remember } = JSON.parse(savedCredentials);
                     if (remember) {
-                        document.getElementById('username').value = username;
-                        document.getElementById('password').value = password;
-                        document.getElementById('rememberPassword').checked = true;
+                        const usernameField = document.getElementById('username');
+                        const passwordField = document.getElementById('password');
+                        const rememberCheckbox = document.getElementById('rememberPassword');
+                        
+                        if (usernameField) usernameField.value = username;
+                        if (passwordField) passwordField.value = password;
+                        if (rememberCheckbox) rememberCheckbox.checked = true;
+                        
+                        appState.rememberPassword = true;
                     }
                 }
             } catch (error) {
@@ -2474,28 +2480,60 @@
 
         function setupEventListeners() {
             // Authentication
-            document.getElementById('loginForm').addEventListener('submit', handleLogin);
-            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            const loginForm = document.getElementById('loginForm');
+            const logoutBtn = document.getElementById('logoutBtn');
             
-            // Password toggle
-            document.getElementById('togglePassword').addEventListener('click', () => {
-                const passwordInput = document.getElementById('password');
-                const icon = document.querySelector('#togglePassword i');
-                
-                if (passwordInput && icon) {
-                    if (passwordInput.type === 'password') {
-                        passwordInput.type = 'text';
-                        icon.setAttribute('data-lucide', 'eye');
-                    } else {
-                        passwordInput.type = 'password';
-                        icon.setAttribute('data-lucide', 'eye-off');
-                    }
+            if (loginForm) {
+                loginForm.addEventListener('submit', handleLogin);
+            }
+            
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', handleLogout);
+            }
+            
+            // Password toggle - with better error handling
+            const togglePasswordBtn = document.getElementById('togglePassword');
+            if (togglePasswordBtn) {
+                togglePasswordBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     
-                    if (window.lucide) {
-                        lucide.createIcons();
+                    const passwordInput = document.getElementById('password');
+                    const icon = document.querySelector('#togglePassword i');
+                    
+                    console.log('Password toggle clicked', { passwordInput, icon });
+                    
+                    if (passwordInput && icon) {
+                        if (passwordInput.type === 'password') {
+                            passwordInput.type = 'text';
+                            icon.setAttribute('data-lucide', 'eye');
+                            appState.showPassword = true;
+                        } else {
+                            passwordInput.type = 'password';
+                            icon.setAttribute('data-lucide', 'eye-off');
+                            appState.showPassword = false;
+                        }
+                        
+                        // Refresh Lucide icons
+                        if (window.lucide) {
+                            lucide.createIcons();
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                console.error('Toggle password button not found');
+            }
+            
+            // Remember password checkbox
+            const rememberCheckbox = document.getElementById('rememberPassword');
+            if (rememberCheckbox) {
+                rememberCheckbox.addEventListener('change', (e) => {
+                    appState.rememberPassword = e.target.checked;
+                    console.log('Remember password changed:', e.target.checked);
+                });
+            } else {
+                console.error('Remember password checkbox not found');
+            }
             
             // Tab navigation
             document.querySelectorAll('.tab-button').forEach(button => {
