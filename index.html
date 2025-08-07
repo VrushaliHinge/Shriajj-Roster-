@@ -1074,8 +1074,13 @@
                     </div>
                     
                     <div>
-                        <label class="flex items-center text-sm font-medium text-gray-700">
-                            <input type="checkbox" id="publicHolidayFlag" class="h-4 w-4 text-pink-600 border-gray-300 rounded mr-2">
+                        <label for="publicHolidayFlag" class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                id="publicHolidayFlag" 
+                                class="h-4 w-4 text-pink-600 border-gray-300 rounded mr-2"
+                                style="accent-color: #ec4899;"
+                            >
                             <span class="text-pink-600 font-semibold">Public Holiday</span>
                             <span class="text-gray-500 ml-1">(Pink highlighting will be applied)</span>
                         </label>
@@ -2259,6 +2264,8 @@
             // If leave type is selected, uncheck public holiday flag (can't work and be on leave)
             if (leaveType && publicHolidayCheckbox.checked) {
                 publicHolidayCheckbox.checked = false;
+                // Force visual update
+                publicHolidayCheckbox.dispatchEvent(new Event('change'));
                 console.log('🔄 Cleared public holiday flag because leave type was selected');
             }
         }
@@ -2266,6 +2273,10 @@
         function handlePublicHolidayChange(event) {
             const isChecked = event.target.checked;
             const leaveTypeSelect = document.getElementById('shiftLeaveType');
+            const checkbox = document.getElementById('publicHolidayFlag');
+            
+            // Force checkbox visual state
+            checkbox.checked = isChecked;
             
             // If public holiday is checked, clear leave type (can't work and be on leave)
             if (isChecked && leaveTypeSelect.value) {
@@ -2273,7 +2284,7 @@
                 console.log('🔄 Cleared leave type because public holiday flag was checked');
             }
             
-            console.log('🏷️ Public holiday checkbox changed:', isChecked);
+            console.log('🏷️ Public holiday checkbox changed:', isChecked, 'Visual state:', checkbox.checked);
         }
 
         function deleteShift() {
@@ -3170,20 +3181,14 @@
                     if (passwordInput) {
                         if (passwordInput.type === 'password') {
                             passwordInput.type = 'text';
-                            if (icon) {
-                                icon.setAttribute('data-lucide', 'eye');
-                                // Force icon update
-                                icon.outerHTML = '<i data-lucide="eye" class="w-5 h-5"></i>';
-                            }
+                            // Replace the entire button content to ensure icon updates
+                            togglePasswordBtn.innerHTML = '<i data-lucide="eye" class="w-5 h-5"></i>';
                             appState.showPassword = true;
                             console.log('✅ Password now visible');
                         } else {
                             passwordInput.type = 'password';
-                            if (icon) {
-                                icon.setAttribute('data-lucide', 'eye-off');
-                                // Force icon update
-                                icon.outerHTML = '<i data-lucide="eye-off" class="w-5 h-5"></i>';
-                            }
+                            // Replace the entire button content to ensure icon updates
+                            togglePasswordBtn.innerHTML = '<i data-lucide="eye-off" class="w-5 h-5"></i>';
                             appState.showPassword = false;
                             console.log('✅ Password now hidden');
                         }
