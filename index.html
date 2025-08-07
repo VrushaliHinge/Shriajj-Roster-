@@ -2531,14 +2531,16 @@
                                     shift.isPublicHoliday
                                 );
                                 
-                                scheduledEmployees.push(`${employee} ${startTime}-${endTime} (${hours.total}h)`);
+                                scheduledEmployees.push(`${employee}
+${startTime} - ${endTime}
+${hours.total}h`);
                             }
                         });
                     });
                     
-                    // Format cell content - multiple employees separated by line breaks
+                    // Format cell content - multiple employees separated by double line breaks
                     if (scheduledEmployees.length > 0) {
-                        cellContent = scheduledEmployees.join('\n');
+                        cellContent = scheduledEmployees.join('\n\n');
                     } else {
                         cellContent = '';
                     }
