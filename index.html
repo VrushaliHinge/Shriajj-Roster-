@@ -2483,7 +2483,7 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="border border-gray-200 px-3 py-2 font-medium">${employee}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.remainingRegularHours.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.mondayToFridayRegular.toFixed(1)}</td>
                     <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.overtime.toFixed(1)}</td>
                     <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.saturday.toFixed(1)}</td>
                     <td class="border border-gray-200 px-3 py-2 text-center text-purple-600">${payRateBreakdown.sunday.toFixed(1)}</td>
@@ -3003,7 +3003,7 @@
             <div class="summary-grid">
                 <div class="summary-item" style="background-color: #eff6ff;">
                     <span class="summary-label">Regular:</span>
-                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(1)}h</span>
+                    <span class="summary-value">${weeklyHours.mondayToFridayRegular.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fef3f2;">
                     <span class="summary-label">Overtime:</span>
