@@ -2493,7 +2493,7 @@
                 year: 'numeric'
             });
             
-            // Create CSV content matching the original table structure exactly
+            // Create CSV content matching the original format exactly
             let csvContent = `SHRIAJJ PTY LTD\n`;
             csvContent += `Weekly Combined Roster: ${weekString}\n`;
             csvContent += `Generated on ${dateString} at ${timeString}\n\n`;
@@ -2512,73 +2512,61 @@
                 return dayName;
             }).join(',') + '\n';
             
-            // Create a grid structure like the original table
-            // Find maximum employees per location/day combination
-            let maxEmployeesPerCell = 1;
-            appState.locations.forEach(location => {
+            // Process each location - create a simple table structure
+            appState.locations.forEach((location, locationIndex) => {
+                // Find all employees working at this location this week
+                const locationEmployees = new Set();
                 weekDays.forEach(day => {
-                    let employeeCount = 0;
                     appState.employees.forEach(employee => {
                         const employeeShifts = weekData[employee]?.[day] || [];
                         if (employeeShifts.some(shift => shift.location === location)) {
-                            employeeCount++;
+                            locationEmployees.add(employee);
                         }
                     });
-                    maxEmployeesPerCell = Math.max(maxEmployeesPerCell, employeeCount);
                 });
-            });
-            
-            // Process each location with individual employee rows
-            appState.locations.forEach(location => {
-                // Collect all employees for this location across all days
-                const locationEmployeesByDay = {};
-                weekDays.forEach(day => {
-                    locationEmployeesByDay[day] = [];
-                    appState.employees.forEach(employee => {
-                        const employeeShifts = weekData[employee]?.[day] || [];
-                        employeeShifts.forEach(shift => {
-                            if (shift.location === location) {
-                                const startTime = shift.scheduledStart || '09:00';
-                                const endTime = shift.scheduledEnd || '17:00';
-                                // Convert to 12-hour format
-                                const start12hr = convertTo12Hour(startTime);
-                                const end12hr = convertTo12Hour(endTime);
-                                
-                                locationEmployeesByDay[day].push({
-                                    name: employee,
-                                    timeRange: `${start12hr} - ${end12hr}`,
-                                    startTime: startTime
-                                });
-                            }
-                        });
+                
+                // Sort employees alphabetically for consistent display
+                const sortedEmployees = Array.from(locationEmployees).sort();
+                
+                // If no employees, create one empty row
+                if (sortedEmployees.length === 0) {
+                    csvContent += location;
+                    weekDays.forEach(() => {
+                        csvContent += ',"-"';
                     });
-                    // Sort by start time
-                    locationEmployeesByDay[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
-                });
+                    csvContent += '\n';
+                    return;
+                }
                 
-                // Find max employees for this location to determine how many rows needed
-                const maxEmployees = Math.max(1, ...weekDays.map(day => locationEmployeesByDay[day].length));
-                
-                // Create rows for each employee position
-                for (let empIndex = 0; empIndex < maxEmployees; empIndex++) {
+                // Create one row per employee for this location
+                sortedEmployees.forEach((employee, empIndex) => {
+                    // Location name only on first employee row
                     if (empIndex === 0) {
-                        csvContent += location; // Location name only on first row
+                        csvContent += location;
                     } else {
-                        csvContent += ''; // Empty location cell for subsequent rows
+                        csvContent += '';
                     }
                     
+                    // Add employee data for each day
                     weekDays.forEach(day => {
-                        const employee = locationEmployeesByDay[day][empIndex];
-                        if (employee) {
-                            csvContent += `,"${employee.name}
-Scheduled: ${employee.timeRange}"`;
+                        const employeeShifts = weekData[employee]?.[day] || [];
+                        const locationShift = employeeShifts.find(shift => shift.location === location);
+                        
+                        if (locationShift) {
+                            const startTime = locationShift.scheduledStart || '09:00';
+                            const endTime = locationShift.scheduledEnd || '17:00';
+                            const start12hr = convertTo12Hour(startTime);
+                            const end12hr = convertTo12Hour(endTime);
+                            
+                            csvContent += `,"${employee}
+Scheduled: ${start12hr} - ${end12hr}"`;
                         } else {
-                            csvContent += ','; // Empty cell
+                            csvContent += ',""';
                         }
                     });
                     
                     csvContent += '\n';
-                }
+                });
             });
             
             // Add footer information matching original format
