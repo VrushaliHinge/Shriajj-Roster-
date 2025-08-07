@@ -1997,14 +1997,16 @@
         }
 
         // Modal Functions
-        function openShiftModal(location, day, employee, shift) {
-            appState.currentEditingShift = { location, day, employee, shift };
+        function openShiftModal(employee, day, location, shift) {
+            appState.currentEditingShift = { employee, day, location, shift };
             
             // Populate form
             populateShiftModal(shift);
             
             // Show modal
             document.getElementById('shiftModal').classList.remove('hidden');
+            
+            console.log(`🔧 Opened shift modal for: ${employee || 'New Employee'} at ${location} on ${day}`);
         }
 
         function closeShiftModal() {
@@ -2016,13 +2018,19 @@
             const employeeSelect = document.getElementById('shiftEmployee');
             const locationSelect = document.getElementById('shiftLocation');
             
+            // Get current editing context
+            const { employee: currentEmployee, location: currentLocation } = appState.currentEditingShift || {};
+            
             // Populate employee options
             employeeSelect.innerHTML = '';
             appState.employees.forEach(emp => {
                 const option = document.createElement('option');
                 option.value = emp;
                 option.textContent = emp;
-                if (shift && shift.employee === emp) option.selected = true;
+                // Select current employee or the one from existing shift
+                if ((shift && shift.employee === emp) || (!shift && currentEmployee === emp)) {
+                    option.selected = true;
+                }
                 employeeSelect.appendChild(option);
             });
             
@@ -2032,7 +2040,10 @@
                 const option = document.createElement('option');
                 option.value = loc;
                 option.textContent = loc;
-                if (shift && shift.location === loc) option.selected = true;
+                // Select current location or the one from existing shift
+                if ((shift && shift.location === loc) || (!shift && currentLocation === loc)) {
+                    option.selected = true;
+                }
                 locationSelect.appendChild(option);
             });
             
@@ -2048,9 +2059,12 @@
             
             if (!appState.currentEditingShift) return;
             
+            const selectedEmployee = document.getElementById('shiftEmployee').value;
+            const selectedLocation = document.getElementById('shiftLocation').value;
+            
             const formData = {
-                employee: document.getElementById('shiftEmployee').value,
-                location: document.getElementById('shiftLocation').value,
+                employee: selectedEmployee,
+                location: selectedLocation,
                 scheduledStart: document.getElementById('shiftStartTime').value,
                 scheduledEnd: document.getElementById('shiftEndTime').value,
                 leaveType: document.getElementById('shiftLeaveType').value,
@@ -2060,34 +2074,36 @@
                 leaveHours: 0
             };
             
-            // Save to roster data
-            const { day, employee } = appState.currentEditingShift;
+            // Save to roster data using the selected employee (not the old one)
+            const { day } = appState.currentEditingShift;
             const weekKey = getCurrentWeekKey();
             
             if (!appState.allRosterData[weekKey]) {
                 appState.allRosterData[weekKey] = {};
             }
-            if (!appState.allRosterData[weekKey][employee]) {
-                appState.allRosterData[weekKey][employee] = {};
+            if (!appState.allRosterData[weekKey][selectedEmployee]) {
+                appState.allRosterData[weekKey][selectedEmployee] = {};
             }
-            if (!appState.allRosterData[weekKey][employee][day]) {
-                appState.allRosterData[weekKey][employee][day] = [];
+            if (!appState.allRosterData[weekKey][selectedEmployee][day]) {
+                appState.allRosterData[weekKey][selectedEmployee][day] = [];
             }
             
             // Add or update shift
-            const existingShiftIndex = appState.allRosterData[weekKey][employee][day].findIndex(
+            const existingShiftIndex = appState.allRosterData[weekKey][selectedEmployee][day].findIndex(
                 s => s === appState.currentEditingShift.shift
             );
             
             if (existingShiftIndex >= 0) {
-                appState.allRosterData[weekKey][employee][day][existingShiftIndex] = formData;
+                appState.allRosterData[weekKey][selectedEmployee][day][existingShiftIndex] = formData;
             } else {
-                appState.allRosterData[weekKey][employee][day].push(formData);
+                appState.allRosterData[weekKey][selectedEmployee][day].push(formData);
             }
             
             closeShiftModal();
             renderRosterGrid();
             saveRosterData();
+            
+            console.log(`✅ Shift saved: ${selectedEmployee} at ${selectedLocation} on ${day}`);
         }
 
         function deleteShift() {
@@ -2447,11 +2463,11 @@
                         });
                     });
                     
-                    // Format cell content
+                    // Format cell content to match original format exactly
                     if (scheduledEmployees.length > 0) {
                         cellContent = scheduledEmployees.map(emp => 
-                            `${emp.name} Scheduled: ${emp.time}`
-                        ).join(' | ');
+                            `${emp.name}\nScheduled: ${emp.time}`
+                        ).join('\n\n');
                     } else {
                         cellContent = '-';
                     }
