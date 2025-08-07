@@ -2471,6 +2471,69 @@
             return Math.max(0, Math.round(hours * 2) / 2); // Round to nearest 0.5
         }
 
+        function getDailyHours(employee, day) {
+            const weekKey = getCurrentWeekKey();
+            const weekData = appState.allRosterData[weekKey] || {};
+            const employeeData = weekData[employee] || {};
+            const dayShifts = employeeData[day] || [];
+            
+            let regular = 0;
+            let overtime = 0;
+            let publicHoliday = 0;
+            let annualLeave = 0;
+            let sickLeave = 0;
+            let publicHolidayLeave = 0;
+            let total = 0;
+            
+            dayShifts.forEach(shift => {
+                if (shift.leaveType) {
+                    switch(shift.leaveType) {
+                        case 'annual':
+                            annualLeave += shift.hours || 8;
+                            break;
+                        case 'sick':
+                            sickLeave += shift.hours || 8;
+                            break;
+                        case 'public':
+                            publicHolidayLeave += shift.hours || 8;
+                            break;
+                    }
+                } else {
+                    const shiftHours = shift.hours || calculateShiftHours(shift.scheduledStart, shift.scheduledEnd);
+                    total += shiftHours;
+                    
+                    // Check if it's a public holiday
+                    if (shift.isPublicHoliday) {
+                        publicHoliday += shiftHours;
+                    } else if (day.includes('Sun') || day.includes('Sat')) {
+                        // Weekend hours are already categorized in getWeeklySummary
+                        regular += shiftHours;
+                    } else {
+                        // Regular weekday - check for overtime
+                        if (shiftHours > 8) {
+                            regular += 8;
+                            overtime += shiftHours - 8;
+                        } else {
+                            regular += shiftHours;
+                        }
+                    }
+                }
+            });
+            
+            // Add leave hours to total
+            total += annualLeave + sickLeave + publicHolidayLeave;
+            
+            return {
+                regular,
+                overtime,
+                publicHoliday,
+                annualLeave,
+                sickLeave,
+                publicHolidayLeave,
+                total
+            };
+        }
+
         function getWeeklySummary(employee) {
             const weekKey = getCurrentWeekKey();
             const weekData = appState.allRosterData[weekKey] || {};
@@ -2773,50 +2836,91 @@
                 appState.allRosterData[weekKey] = {
                     'Bhanush': {
                         'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Caroline Springs' }],
-                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }]
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:00', location: 'Geelong' }]
                     },
                     'Girish': {
-                        'Sun 3-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
                         'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
-                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }]
+                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Sat 9-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }]
                     },
                     'Aravind': {
-                        'Mon 4-Aug': [{ scheduledStart: '09:15', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
-                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '12:00', location: 'Werribee Plaza' }]
+                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Fri 8-Aug': [{ scheduledStart: '11:00', scheduledEnd: '20:00', location: 'Caroline Springs' }]
                     },
                     'Vansh': {
-                        'Sat 9-Aug': [{ scheduledStart: '09:00', scheduledEnd: '13:30', location: 'Point Cook' }]
+                        'Sat 9-Aug': [{ scheduledStart: '12:00', scheduledEnd: '17:00', location: 'Caroline Springs' }],
+                        'Wed 6-Aug': [{ scheduledStart: '10:30', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
+                        'Thu 7-Aug': [{ scheduledStart: '10:30', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
+                        'Fri 8-Aug': [{ scheduledStart: '11:00', scheduledEnd: '17:30', location: 'Woodgrove' }]
                     },
                     'Kashish': {
+                        'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza' }],
                         'Mon 4-Aug': [{ scheduledStart: '09:15', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
                         'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
-                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza' }],
-                        'Sun 10-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza' }]
+                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
+                        'Fri 8-Aug': [{ scheduledStart: '12:00', scheduledEnd: '20:00', location: 'Werribee Plaza' }],
+                        'Sat 9-Aug': [{ scheduledStart: '09:20', scheduledEnd: '17:00', location: 'Werribee Plaza' }]
                     },
                     'Sonam': {
+                        'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '20:00', location: 'Werribee Plaza' }],
+                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '16:00', location: 'Werribee Plaza' }],
+                        'Sat 9-Aug': [{ scheduledStart: '11:00', scheduledEnd: '17:00', location: 'Werribee Plaza' }],
                         'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
                         'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
                         'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
-                        'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
-                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
-                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '13:00', location: 'Point Cook' }]
+                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '19:00', location: 'Point Cook' }],
+                        'Sat 9-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:00', location: 'Point Cook' }]
                     },
                     'Tejal': {
                         'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Point Cook' }],
-                        'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
                         'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
-                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
-                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:30', location: 'Point Cook' }]
+                        'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '19:00', location: 'Point Cook' }],
+                        'Sat 9-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:00', location: 'Point Cook' }]
+                    },
+                    'Anshul': {
+                        'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Geelong' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Geelong' }],
+                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '20:00', location: 'Geelong' }]
+                    },
+                    'Matt': {
+                        'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Geelong' }],
+                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Geelong' }],
+                        'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Geelong' }]
+                    },
+                    'Aswin': {
+                        'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Woodgrove' }],
+                        'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Woodgrove' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Woodgrove' }],
+                        'Sat 9-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Woodgrove' }]
                     }
                 };
                 
                 // Save to localStorage as backup
                 localStorage.setItem('roster-cache', JSON.stringify({ [weekKey]: appState.allRosterData[weekKey] }));
+                
+                // Also add these employees to the employee list if they don't exist
+                const newEmployees = ['Bhanush', 'Girish', 'Aravind', 'Vansh', 'Kashish', 'Sonam', 'Tejal', 'Anshul', 'Matt', 'Aswin'];
+                newEmployees.forEach(emp => {
+                    if (!appState.employees.includes(emp)) {
+                        appState.employees.push(emp);
+                    }
+                });
+                
+                console.log('✅ Sample roster data loaded with', Object.keys(appState.allRosterData[weekKey]).length, 'employees');
             }
         }
 
         // Start the application when the page loads
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeApp();
+            setTimeout(() => {
+                initializeSampleData();
+                renderRosterGrid();
+            }, 1000); // Wait for initialization to complete
+        });
 
         // Global functions for onclick handlers
         window.openShiftModal = openShiftModal;
