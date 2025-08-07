@@ -2403,39 +2403,84 @@
             const weekString = getCurrentWeekString();
             const weekData = appState.allRosterData[weekKey] || {};
             const weekDays = getCurrentWeekDates();
+            const today = new Date();
+            const timeString = today.toLocaleTimeString('en-AU', { 
+                hour12: true, 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            const dateString = today.toLocaleDateString('en-AU', {
+                day: 'numeric',
+                month: 'numeric',
+                year: 'numeric'
+            });
             
-            // Create CSV content for combined roster
-            let csvContent = `Combined Roster - Week ${weekString}\n\n`;
-            csvContent += 'Location,Day,Employee,Start Time,End Time,Hours\n';
+            // Create CSV content matching the exact format from the image
+            let csvContent = `SHRIAJJ PTY LTD\n`;
+            csvContent += `Weekly Combined Roster: ${weekString}\n`;
+            csvContent += `Generated on ${dateString} at ${timeString}\n\n`;
             
-            // Organize data by location and day
+            // Create header row
+            csvContent += 'Location,' + weekDays.join(',') + '\n';
+            
+            // Process each location
             appState.locations.forEach(location => {
+                const locationRow = [location];
+                
                 weekDays.forEach(day => {
-                    // Find employees scheduled for this location and day
+                    let cellContent = '';
+                    
+                    // Find all employees scheduled for this location and day
+                    const scheduledEmployees = [];
                     appState.employees.forEach(employee => {
                         const employeeShifts = weekData[employee]?.[day] || [];
                         employeeShifts.forEach(shift => {
                             if (shift.location === location) {
                                 const startTime = shift.scheduledStart || '09:00';
                                 const endTime = shift.scheduledEnd || '17:00';
-                                const hours = calculateShiftHours(startTime, endTime);
-                                csvContent += `${location},${day},${employee},${startTime},${endTime},${hours}\n`;
+                                scheduledEmployees.push({
+                                    name: employee,
+                                    time: `${startTime}-${endTime}`
+                                });
                             }
                         });
                     });
+                    
+                    // Format cell content
+                    if (scheduledEmployees.length > 0) {
+                        cellContent = scheduledEmployees.map(emp => 
+                            `${emp.name} Scheduled: ${emp.time}`
+                        ).join(' | ');
+                    } else {
+                        cellContent = '-';
+                    }
+                    
+                    locationRow.push(`"${cellContent}"`);
                 });
+                
+                csvContent += locationRow.join(',') + '\n';
             });
+            
+            // Add footer information
+            csvContent += '\n';
+            csvContent += 'Legend: Scheduled | Actual | Annual Leave (AL) | Sick Leave (SL) | Public Holiday (PH) | Notes\n';
+            csvContent += 'Public holidays are highlighted in pink background\n\n';
+            csvContent += `A© ${today.getFullYear()} Shriajj Pty Ltd - Weekly Combined Roster | Generated from Staff Roster Management System\n`;
+            csvContent += 'App designed and developed by Vrushali Hinge\n';
             
             // Create and download file
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `combined-roster-${weekKey}.csv`;
+            a.download = `Shriajj_Combined_Roster_${weekString.replace(/\s+/g, '_').replace(/,/g, '')}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+            
+            console.log('📥 Combined roster downloaded successfully');
         }
         
         function exportForEmployees() {
