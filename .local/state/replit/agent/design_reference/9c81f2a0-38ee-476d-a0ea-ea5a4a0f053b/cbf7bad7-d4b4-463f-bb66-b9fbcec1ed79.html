@@ -1,0 +1,1274 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Roster Management System - Shriajj Pty Ltd</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#64748b',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        error: '#ef4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            },
+            darkMode: 'class'
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .roster-grid {
+            display: grid;
+            grid-template-columns: 120px repeat(7, 1fr);
+            gap: 1px;
+            background-color: #e2e8f0;
+        }
+        .roster-cell {
+            background-color: white;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .roster-cell.header {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+        .roster-cell.employee-name {
+            background-color: #f8fafc;
+            padding-left: 8px;
+            justify-content: flex-start;
+        }
+        .shift-assignment {
+            background-color: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .shift-assignment.selected {
+            background-color: #3b82f6;
+            color: white;
+        }
+        @media (max-width: 768px) {
+            .roster-grid {
+                grid-template-columns: 100px repeat(7, 60px);
+                font-size: 12px;
+            }
+            .roster-cell {
+                min-height: 50px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <!-- @COMPONENT: App [Main application container] -->
+    <div id="app" class="min-h-screen">
+        <!-- @COMPONENT: LoginScreen [User authentication interface] -->
+        <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+            <div class="max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-lg">
+                <div class="text-center">
+                    <div class="flex justify-center mb-4">
+                        <div class="p-3 bg-primary rounded-full">
+                            <i data-lucide="building" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-900" data-bind="appConfig.companyName">Shriajj Pty Ltd</h2>
+                    <p class="text-gray-600 mt-2" data-bind="appConfig.systemTitle">Staff Roster Management System</p>
+                </div>
+                
+                <form id="loginForm" class="mt-8 space-y-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                            <div class="mt-1 relative">
+                                <input 
+                                    id="username" 
+                                    name="username" 
+                                    type="text" 
+                                    required 
+                                    class="appearance-none rounded-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                                    placeholder="Enter username"
+                                    data-bind="loginForm.username"
+                                >
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                    <i data-lucide="user" class="w-4 h-4 text-gray-400"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <div class="mt-1 relative">
+                                <input 
+                                    id="password" 
+                                    name="password" 
+                                    type="password" 
+                                    required 
+                                    class="appearance-none rounded-md relative block w-full px-3 py-2 pl-10 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                                    placeholder="Enter password"
+                                    data-bind="loginForm.password"
+                                >
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                    <i data-lucide="lock" class="w-4 h-4 text-gray-400"></i>
+                                </div>
+                                <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                    <i data-lucide="eye-off" class="w-4 h-4 text-gray-400 hover:text-gray-600"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input 
+                                id="rememberPassword" 
+                                name="rememberPassword" 
+                                type="checkbox" 
+                                class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                data-bind="rememberPassword"
+                            >
+                            <label for="rememberPassword" class="ml-2 block text-sm text-gray-700">
+                                Remember password
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="loginError" class="hidden text-red-600 text-sm text-center p-3 bg-red-50 rounded-md">
+                        <!-- Error message will appear here -->
+                    </div>
+
+                    <div>
+                        <button 
+                            type="submit" 
+                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors duration-200"
+                            data-event="click:handleLogin"
+                        >
+                            <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                                <i data-lucide="log-in" class="w-4 h-4 text-blue-300 group-hover:text-blue-200"></i>
+                            </span>
+                            Sign In
+                        </button>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500">
+                            Developed by <span data-bind="appConfig.developer" class="font-medium">Vrushali Hinge</span>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- @COMPONENT: MainApp [Main application interface after login] -->
+        <div id="mainApp" class="hidden min-h-screen bg-gray-50">
+            <!-- @COMPONENT: Header [Top navigation and status bar] -->
+            <header class="bg-white shadow-sm border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between items-center h-16">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="p-2 bg-primary rounded-lg">
+                                    <i data-lucide="building" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-lg font-semibold text-gray-900" data-bind="appConfig.companyName">Shriajj Pty Ltd</h1>
+                                    <p class="text-xs text-gray-500" data-bind="appConfig.systemTitle">Staff Roster Management System</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-4">
+                            <!-- Connection Status -->
+                            <div id="connectionStatus" class="flex items-center space-x-2">
+                                <div id="onlineIndicator" class="flex items-center space-x-1 text-sm">
+                                    <div class="w-2 h-2 bg-success rounded-full"></div>
+                                    <span class="text-gray-600">Online</span>
+                                </div>
+                                <div id="offlineIndicator" class="hidden flex items-center space-x-1 text-sm">
+                                    <div class="w-2 h-2 bg-error rounded-full"></div>
+                                    <span class="text-gray-600">Offline</span>
+                                </div>
+                            </div>
+
+                            <!-- Sync Status -->
+                            <div id="syncStatus" class="flex items-center space-x-1 text-sm text-gray-600">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-success"></i>
+                                <span>Synced</span>
+                            </div>
+
+                            <!-- User Menu -->
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-700">Welcome, <span id="currentUser" data-bind="currentUser" class="font-medium">Admin</span></span>
+                                <button 
+                                    id="logoutBtn" 
+                                    class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    data-event="click:handleLogout"
+                                >
+                                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- @COMPONENT: TabNavigation [Main navigation tabs] -->
+            <nav class="bg-white border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex space-x-8" role="tablist">
+                        <button 
+                            class="tab-button py-4 px-1 border-b-2 font-medium text-sm transition-colors border-primary text-primary" 
+                            data-tab="roster"
+                            data-event="click:setActiveTab"
+                        >
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                                <span>Roster</span>
+                            </div>
+                        </button>
+                        <button 
+                            class="tab-button py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" 
+                            data-tab="employees"
+                            data-event="click:setActiveTab"
+                        >
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="users" class="w-4 h-4"></i>
+                                <span>Employees</span>
+                            </div>
+                        </button>
+                        <button 
+                            class="tab-button py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" 
+                            data-tab="locations"
+                            data-event="click:setActiveTab"
+                        >
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                <span>Locations</span>
+                            </div>
+                        </button>
+                        <button 
+                            class="tab-button py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" 
+                            data-tab="settings"
+                            data-event="click:setActiveTab"
+                        >
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="settings" class="w-4 h-4"></i>
+                                <span>Settings</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- @COMPONENT: MainContent [Tab content container] -->
+            <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <!-- @COMPONENT: RosterTab [Roster management interface] -->
+                <div id="rosterTab" class="tab-content">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <!-- Roster Header -->
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                                <div>
+                                    <h2 class="text-xl font-semibold text-gray-900">Weekly Roster</h2>
+                                    <p class="text-sm text-gray-600">Manage staff schedules and assignments</p>
+                                </div>
+                                
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                                    <!-- Week Navigation -->
+                                    <div class="flex items-center space-x-2">
+                                        <button 
+                                            id="prevWeek" 
+                                            class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                            data-event="click:navigateWeek"
+                                            data-direction="prev"
+                                        >
+                                            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                        </button>
+                                        <div class="text-sm font-medium text-gray-900 min-w-[200px] text-center">
+                                            <span id="currentWeekDisplay" data-bind="formatWeekRange">Aug 3 - Aug 9, 2025</span>
+                                        </div>
+                                        <button 
+                                            id="nextWeek" 
+                                            class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                            data-event="click:navigateWeek"
+                                            data-direction="next"
+                                        >
+                                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="flex items-center space-x-2">
+                                        <button 
+                                            id="editModeBtn" 
+                                            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                            data-event="click:toggleEditMode"
+                                        >
+                                            <i data-lucide="edit-2" class="w-4 h-4 mr-2"></i>
+                                            Edit Mode
+                                        </button>
+                                        <button 
+                                            id="saveRosterBtn" 
+                                            class="hidden inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                            data-event="click:saveRoster"
+                                        >
+                                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                                            Save
+                                        </button>
+                                        <button 
+                                            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                            data-event="click:exportRoster"
+                                        >
+                                            <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                                            Export
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Roster Grid -->
+                        <div class="p-6">
+                            <div class="overflow-x-auto">
+                                <div class="roster-grid min-w-[600px]">
+                                    <!-- Header Row -->
+                                    <div class="roster-cell header">Employee</div>
+                                    <div class="roster-cell header">Mon<br><span class="text-xs text-gray-500">Aug 3</span></div>
+                                    <div class="roster-cell header">Tue<br><span class="text-xs text-gray-500">Aug 4</span></div>
+                                    <div class="roster-cell header">Wed<br><span class="text-xs text-gray-500">Aug 5</span></div>
+                                    <div class="roster-cell header">Thu<br><span class="text-xs text-gray-500">Aug 6</span></div>
+                                    <div class="roster-cell header">Fri<br><span class="text-xs text-gray-500">Aug 7</span></div>
+                                    <div class="roster-cell header">Sat<br><span class="text-xs text-gray-500">Aug 8</span></div>
+                                    <div class="roster-cell header">Sun<br><span class="text-xs text-gray-500">Aug 9</span></div>
+
+                                    <!-- @MAP: employees.map(employee => ( -->
+                                    <div class="roster-cell employee-name">
+                                        <span class="font-medium text-gray-900" data-bind="employee.name">Bhanush</span>
+                                    </div>
+                                    <div class="roster-cell" data-day="monday" data-employee="bhanush">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="tuesday" data-employee="bhanush">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="wednesday" data-employee="bhanush"></div>
+                                    <div class="roster-cell" data-day="thursday" data-employee="bhanush">
+                                        <div class="shift-assignment" data-mock="true">
+                                            13:00-21:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="friday" data-employee="bhanush">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="saturday" data-employee="bhanush"></div>
+                                    <div class="roster-cell" data-day="sunday" data-employee="bhanush"></div>
+
+                                    <div class="roster-cell employee-name">
+                                        <span class="font-medium text-gray-900" data-bind="employee.name">Girish</span>
+                                    </div>
+                                    <div class="roster-cell" data-day="monday" data-employee="girish"></div>
+                                    <div class="roster-cell" data-day="tuesday" data-employee="girish">
+                                        <div class="shift-assignment" data-mock="true">
+                                            13:00-21:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="wednesday" data-employee="girish">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="thursday" data-employee="girish"></div>
+                                    <div class="roster-cell" data-day="friday" data-employee="girish">
+                                        <div class="shift-assignment" data-mock="true">
+                                            13:00-21:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="saturday" data-employee="girish">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="sunday" data-employee="girish"></div>
+
+                                    <div class="roster-cell employee-name">
+                                        <span class="font-medium text-gray-900" data-bind="employee.name">Aravind</span>
+                                    </div>
+                                    <div class="roster-cell" data-day="monday" data-employee="aravind">
+                                        <div class="shift-assignment" data-mock="true">
+                                            13:00-21:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="tuesday" data-employee="aravind"></div>
+                                    <div class="roster-cell" data-day="wednesday" data-employee="aravind">
+                                        <div class="shift-assignment" data-mock="true">
+                                            13:00-21:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="thursday" data-employee="aravind">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="friday" data-employee="aravind"></div>
+                                    <div class="roster-cell" data-day="saturday" data-employee="aravind">
+                                        <div class="shift-assignment" data-mock="true">
+                                            13:00-21:00
+                                        </div>
+                                    </div>
+                                    <div class="roster-cell" data-day="sunday" data-employee="aravind">
+                                        <div class="shift-assignment" data-mock="true">
+                                            9:00-17:00
+                                        </div>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- @COMPONENT: EmployeesTab [Employee management interface] -->
+                <div id="employeesTab" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                                <div>
+                                    <h2 class="text-xl font-semibold text-gray-900">Employee Management</h2>
+                                    <p class="text-sm text-gray-600">Add, edit, and manage staff members</p>
+                                </div>
+                                <button 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                    data-event="click:addEmployee"
+                                >
+                                    <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                                    Add Employee
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <!-- @MAP: employees.map(employee => ( -->
+                                    <tr data-mock="true">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-8 w-8">
+                                                    <div class="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+                                                        <span class="text-sm font-medium text-white">B</span>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900" data-bind="employee.name">Bhanush</div>
+                                                    <div class="text-sm text-gray-500" data-bind="employee.id">EMP001</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900" data-bind="employee.position">Manager</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900" data-bind="employee.phone">+61 400 123 456</div>
+                                            <div class="text-sm text-gray-500" data-bind="employee.email">bhanush@example.com</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                Active
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button class="text-primary hover:text-blue-700 mr-3" data-event="click:editEmployee">
+                                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-700" data-event="click:deleteEmployee">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr data-mock="true">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-8 w-8">
+                                                    <div class="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+                                                        <span class="text-sm font-medium text-white">G</span>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900" data-bind="employee.name">Girish</div>
+                                                    <div class="text-sm text-gray-500" data-bind="employee.id">EMP002</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900" data-bind="employee.position">Staff</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900" data-bind="employee.phone">+61 400 123 457</div>
+                                            <div class="text-sm text-gray-500" data-bind="employee.email">girish@example.com</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                Active
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button class="text-primary hover:text-blue-700 mr-3" data-event="click:editEmployee">
+                                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-700" data-event="click:deleteEmployee">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <!-- @END_MAP )) -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- @COMPONENT: LocationsTab [Location management interface] -->
+                <div id="locationsTab" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                                <div>
+                                    <h2 class="text-xl font-semibold text-gray-900">Location Management</h2>
+                                    <p class="text-sm text-gray-600">Manage business locations and settings</p>
+                                </div>
+                                <button 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                    data-event="click:addLocation"
+                                >
+                                    <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                                    Add Location
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- @MAP: locations.map(location => ( -->
+                                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow" data-mock="true">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-lg font-medium text-gray-900" data-bind="location.name">Caroline Springs</h3>
+                                        <div class="flex space-x-2">
+                                            <button class="text-primary hover:text-blue-700" data-event="click:editLocation">
+                                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-700" data-event="click:deleteLocation">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2 text-sm text-gray-600">
+                                        <div class="flex items-center">
+                                            <i data-lucide="map-pin" class="w-4 h-4 mr-2"></i>
+                                            <span data-bind="location.address">123 Caroline Springs Blvd</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i data-lucide="phone" class="w-4 h-4 mr-2"></i>
+                                            <span data-bind="location.phone">+61 3 8999 1234</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i data-lucide="users" class="w-4 h-4 mr-2"></i>
+                                            <span><span data-bind="location.staffCount">5</span> staff members</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                            Active
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow" data-mock="true">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-lg font-medium text-gray-900" data-bind="location.name">Werribee Plaza</h3>
+                                        <div class="flex space-x-2">
+                                            <button class="text-primary hover:text-blue-700" data-event="click:editLocation">
+                                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-700" data-event="click:deleteLocation">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2 text-sm text-gray-600">
+                                        <div class="flex items-center">
+                                            <i data-lucide="map-pin" class="w-4 h-4 mr-2"></i>
+                                            <span data-bind="location.address">Werribee Plaza Shopping Centre</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i data-lucide="phone" class="w-4 h-4 mr-2"></i>
+                                            <span data-bind="location.phone">+61 3 8999 5678</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i data-lucide="users" class="w-4 h-4 mr-2"></i>
+                                            <span><span data-bind="location.staffCount">7</span> staff members</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                            Active
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow" data-mock="true">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-lg font-medium text-gray-900" data-bind="location.name">Point Cook</h3>
+                                        <div class="flex space-x-2">
+                                            <button class="text-primary hover:text-blue-700" data-event="click:editLocation">
+                                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-700" data-event="click:deleteLocation">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2 text-sm text-gray-600">
+                                        <div class="flex items-center">
+                                            <i data-lucide="map-pin" class="w-4 h-4 mr-2"></i>
+                                            <span data-bind="location.address">456 Point Cook Town Centre</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i data-lucide="phone" class="w-4 h-4 mr-2"></i>
+                                            <span data-bind="location.phone">+61 3 8999 9012</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <i data-lucide="users" class="w-4 h-4 mr-2"></i>
+                                            <span><span data-bind="location.staffCount">4</span> staff members</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                            Active
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- @COMPONENT: SettingsTab [Application settings interface] -->
+                <div id="settingsTab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Database Configuration -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">Database Configuration</h3>
+                                <p class="text-sm text-gray-600">Real-time database settings and connection status</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <h4 class="font-medium text-gray-900">Supabase</h4>
+                                            <p class="text-sm text-gray-600">Real-time database with live sync</p>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-2 h-2 bg-success rounded-full"></div>
+                                            <span class="text-sm text-gray-600">Connected</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-gray-700">Database URL</label>
+                                        <div class="relative">
+                                            <input 
+                                                type="text" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary text-sm"
+                                                value="https://••••••••••••••••••••••••••••••••••••••••••••••••••••••••••.supabase.co"
+                                                readonly
+                                                data-implementation="Hide actual API keys for security"
+                                            >
+                                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                                <i data-lucide="eye-off" class="w-4 h-4 text-gray-400"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-gray-700">Auto-sync enabled</span>
+                                        <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                                            <input type="checkbox" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                                            <label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer"></label>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                        data-event="click:testConnection"
+                                    >
+                                        <i data-lucide="wifi" class="w-4 h-4 mr-2"></i>
+                                        Test Connection
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- App Configuration -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">App Configuration</h3>
+                                <p class="text-sm text-gray-600">Customize application settings and preferences</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Company Name</label>
+                                        <input 
+                                            type="text" 
+                                            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary text-sm"
+                                            value="Shriajj Pty Ltd"
+                                            data-bind="appConfig.companyName"
+                                        >
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">System Title</label>
+                                        <input 
+                                            type="text" 
+                                            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary text-sm"
+                                            value="Staff Roster Management System"
+                                            data-bind="appConfig.systemTitle"
+                                        >
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Timezone</label>
+                                        <select class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary text-sm">
+                                            <option value="Australia/Melbourne" selected>Australia/Melbourne</option>
+                                            <option value="Australia/Sydney">Australia/Sydney</option>
+                                            <option value="Australia/Brisbane">Australia/Brisbane</option>
+                                            <option value="Australia/Perth">Australia/Perth</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Theme Color</label>
+                                        <div class="mt-1 flex space-x-2">
+                                            <div class="w-8 h-8 bg-blue-600 rounded-full border-2 border-gray-300 cursor-pointer"></div>
+                                            <div class="w-8 h-8 bg-green-600 rounded-full border-2 border-transparent cursor-pointer"></div>
+                                            <div class="w-8 h-8 bg-purple-600 rounded-full border-2 border-transparent cursor-pointer"></div>
+                                            <div class="w-8 h-8 bg-red-600 rounded-full border-2 border-transparent cursor-pointer"></div>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                                        data-event="click:saveSettings"
+                                    >
+                                        <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                                        Save Settings
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Information -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 lg:col-span-2">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">System Information</h3>
+                                <p class="text-sm text-gray-600">Application details and developer information</p>
+                            </div>
+                            <div class="p-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Version:</span>
+                                            <span class="text-sm text-gray-900">1.0.0</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Developer:</span>
+                                            <span class="text-sm text-gray-900" data-bind="appConfig.developer">Vrushali Hinge</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Last Updated:</span>
+                                            <span class="text-sm text-gray-900">January 2025</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Database:</span>
+                                            <span class="text-sm text-gray-900">Supabase</span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Total Employees:</span>
+                                            <span class="text-sm text-gray-900" data-bind="totalEmployees">10</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Active Locations:</span>
+                                            <span class="text-sm text-gray-900" data-bind="activeLocations">5</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Current Week:</span>
+                                            <span class="text-sm text-gray-900" data-bind="currentWeek">Aug 3-9, 2025</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-700">Sync Status:</span>
+                                            <span class="text-sm text-success font-medium">✓ Connected</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: App -->
+
+    <!-- @COMPONENT: ShiftModal [Modal for editing shift assignments] -->
+    <div id="shiftModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Edit Shift</h3>
+                    <button id="closeShiftModal" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <form id="shiftForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Employee</label>
+                        <select id="shiftEmployee" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary">
+                            <option value="">Select Employee</option>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Date</label>
+                        <input 
+                            type="date" 
+                            id="shiftDate" 
+                            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+                        >
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Time</label>
+                            <input 
+                                type="time" 
+                                id="shiftStartTime" 
+                                class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">End Time</label>
+                            <input 
+                                type="time" 
+                                id="shiftEndTime" 
+                                class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button 
+                            type="button" 
+                            id="deleteShift" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        >
+                            Delete
+                        </button>
+                        <button 
+                            type="button" 
+                            id="cancelShift" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit" 
+                            class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        >
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: ShiftModal -->
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // @STATE: Application state management
+        let appState = {
+            isLoggedIn: false,
+            currentUser: '',
+            activeTab: 'roster',
+            editMode: false,
+            currentWeekStart: new Date(2025, 7, 3), // Aug 3, 2025
+            showPassword: false,
+            rememberPassword: false,
+            isOnline: true,
+            syncStatus: 'synced',
+            rosterData: {},
+            employees: [
+                { id: 'bhanush', name: 'Bhanush', position: 'Manager', phone: '+61 400 123 456', email: 'bhanush@example.com', status: 'active' },
+                { id: 'girish', name: 'Girish', position: 'Staff', phone: '+61 400 123 457', email: 'girish@example.com', status: 'active' },
+                { id: 'aravind', name: 'Aravind', position: 'Staff', phone: '+61 400 123 458', email: 'aravind@example.com', status: 'active' }
+            ],
+            locations: [
+                { id: 'caroline', name: 'Caroline Springs', address: '123 Caroline Springs Blvd', phone: '+61 3 8999 1234', staffCount: 5, status: 'active' },
+                { id: 'werribee', name: 'Werribee Plaza', address: 'Werribee Plaza Shopping Centre', phone: '+61 3 8999 5678', staffCount: 7, status: 'active' },
+                { id: 'pointcook', name: 'Point Cook', address: '456 Point Cook Town Centre', phone: '+61 3 8999 9012', staffCount: 4, status: 'active' }
+            ]
+        };
+
+        // Database Configuration (API keys removed for security)
+        const DATABASE_CONFIG = {
+            supabase: {
+                url: '', // TODO: Add your Supabase URL
+                key: '', // TODO: Add your Supabase anon key
+                enabled: false // Set to true when configured
+            }
+        };
+
+        // @FUNCTIONALITY: Database Service Implementation
+        class DatabaseService {
+            constructor() {
+                this.isConnected = false;
+                this.listeners = new Set();
+                this.localCache = JSON.parse(localStorage.getItem('roster-cache') || '{}');
+                this.retryCount = 0;
+                this.maxRetries = 3;
+            }
+
+            async initialize(config) {
+                // TODO: Implement Supabase connection
+                // For now, simulate connection
+                this.isConnected = true;
+                console.log('✅ Database service initialized (simulation mode)');
+                return true;
+            }
+
+            async saveRosterData(locationId, weekKey, data) {
+                // TODO: Implement real Supabase save
+                this.localCache[`${locationId}-${weekKey}`] = data;
+                localStorage.setItem('roster-cache', JSON.stringify(this.localCache));
+                this.notifyListeners({ type: 'roster_updated', locationId, weekKey, data });
+                return true;
+            }
+
+            async getRosterData(locationId, weekKey) {
+                // TODO: Implement real Supabase fetch
+                return this.localCache[`${locationId}-${weekKey}`] || null;
+            }
+
+            onDataChange(callback) {
+                this.listeners.add(callback);
+                return () => this.listeners.delete(callback);
+            }
+
+            notifyListeners(change) {
+                this.listeners.forEach(callback => callback(change));
+            }
+
+            getConnectionStatus() {
+                return this.isConnected;
+            }
+        }
+
+        const dbService = new DatabaseService();
+
+        // @FUNCTIONALITY: Authentication
+        function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // TODO: Implement proper authentication logic
+            const validUsers = {
+                'admin': 'shriajj2025',
+                'manager': 'manager123',
+                'supervisor': 'super2025'
+            };
+
+            if (validUsers[username] === password) {
+                appState.isLoggedIn = true;
+                appState.currentUser = username;
+                showMainApp();
+                if (appState.rememberPassword) {
+                    localStorage.setItem('rememberedUser', username);
+                }
+            } else {
+                showLoginError('Invalid username or password');
+            }
+        }
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('currentUser').textContent = appState.currentUser;
+        }
+
+        function handleLogout() {
+            appState.isLoggedIn = false;
+            appState.currentUser = '';
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginForm').reset();
+            localStorage.removeItem('rememberedUser');
+        }
+
+        // @FUNCTIONALITY: Tab Management
+        function setActiveTab(tabName) {
+            appState.activeTab = tabName;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('border-primary', 'text-primary');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            document.querySelector(`[data-tab="${tabName}"]`).classList.remove('border-transparent', 'text-gray-500');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('border-primary', 'text-primary');
+            
+            // Show/hide tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            document.getElementById(`${tabName}Tab`).classList.remove('hidden');
+        }
+
+        // @FUNCTIONALITY: Roster Management
+        function toggleEditMode() {
+            appState.editMode = !appState.editMode;
+            const editBtn = document.getElementById('editModeBtn');
+            const saveBtn = document.getElementById('saveRosterBtn');
+            
+            if (appState.editMode) {
+                editBtn.classList.add('hidden');
+                saveBtn.classList.remove('hidden');
+                // TODO: Enable edit mode interactions
+            } else {
+                editBtn.classList.remove('hidden');
+                saveBtn.classList.add('hidden');
+                // TODO: Disable edit mode interactions
+            }
+        }
+
+        function navigateWeek(direction) {
+            const currentWeek = new Date(appState.currentWeekStart);
+            if (direction === 'prev') {
+                currentWeek.setDate(currentWeek.getDate() - 7);
+            } else {
+                currentWeek.setDate(currentWeek.getDate() + 7);
+            }
+            appState.currentWeekStart = currentWeek;
+            updateWeekDisplay();
+            // TODO: Load roster data for new week
+        }
+
+        function updateWeekDisplay() {
+            const startDate = new Date(appState.currentWeekStart);
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+            
+            const options = { month: 'short', day: 'numeric' };
+            const startStr = startDate.toLocaleDateString('en-US', options);
+            const endStr = endDate.toLocaleDateString('en-US', options);
+            const year = startDate.getFullYear();
+            
+            document.getElementById('currentWeekDisplay').textContent = `${startStr} - ${endStr}, ${year}`;
+        }
+
+        function saveRoster() {
+            // TODO: Implement roster save logic
+            appState.editMode = false;
+            toggleEditMode();
+            // TODO: Save to database
+            console.log('Roster saved');
+        }
+
+        function exportRoster() {
+            // TODO: Implement export functionality
+            console.log('Exporting roster...');
+        }
+
+        // @FUNCTIONALITY: Connection and Sync Status
+        function updateConnectionStatus() {
+            const onlineIndicator = document.getElementById('onlineIndicator');
+            const offlineIndicator = document.getElementById('offlineIndicator');
+            
+            if (appState.isOnline) {
+                onlineIndicator.classList.remove('hidden');
+                offlineIndicator.classList.add('hidden');
+            } else {
+                onlineIndicator.classList.add('hidden');
+                offlineIndicator.classList.remove('hidden');
+            }
+        }
+
+        function updateSyncStatus(status) {
+            const syncStatusEl = document.getElementById('syncStatus');
+            const icon = syncStatusEl.querySelector('i');
+            const text = syncStatusEl.querySelector('span');
+            
+            switch (status) {
+                case 'synced':
+                    icon.setAttribute('data-lucide', 'check-circle');
+                    icon.className = 'w-4 h-4 text-success';
+                    text.textContent = 'Synced';
+                    break;
+                case 'syncing':
+                    icon.setAttribute('data-lucide', 'rotate-cw');
+                    icon.className = 'w-4 h-4 text-warning animate-spin';
+                    text.textContent = 'Syncing...';
+                    break;
+                case 'offline':
+                    icon.setAttribute('data-lucide', 'wifi-off');
+                    icon.className = 'w-4 h-4 text-error';
+                    text.textContent = 'Offline';
+                    break;
+            }
+            lucide.createIcons();
+        }
+
+        // @FUNCTIONALITY: Event Listeners
+        function initializeEventListeners() {
+            // Login form
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            
+            // Toggle password visibility
+            document.getElementById('togglePassword').addEventListener('click', () => {
+                const passwordInput = document.getElementById('password');
+                const icon = document.querySelector('#togglePassword i');
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.setAttribute('data-lucide', 'eye');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.setAttribute('data-lucide', 'eye-off');
+                }
+                lucide.createIcons();
+            });
+            
+            // Remember password checkbox
+            document.getElementById('rememberPassword').addEventListener('change', (e) => {
+                appState.rememberPassword = e.target.checked;
+            });
+            
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            
+            // Tab navigation
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    setActiveTab(btn.dataset.tab);
+                });
+            });
+            
+            // Roster controls
+            document.getElementById('editModeBtn').addEventListener('click', toggleEditMode);
+            document.getElementById('saveRosterBtn').addEventListener('click', saveRoster);
+            document.getElementById('prevWeek').addEventListener('click', () => navigateWeek('prev'));
+            document.getElementById('nextWeek').addEventListener('click', () => navigateWeek('next'));
+            
+            // Roster cell clicks for editing shifts
+            document.querySelectorAll('.roster-cell[data-day]').forEach(cell => {
+                cell.addEventListener('click', (e) => {
+                    if (appState.editMode) {
+                        // TODO: Open shift edit modal
+                        console.log('Edit shift:', cell.dataset.employee, cell.dataset.day);
+                    }
+                });
+            });
+            
+            // Online/offline detection
+            window.addEventListener('online', () => {
+                appState.isOnline = true;
+                updateConnectionStatus();
+                updateSyncStatus('synced');
+            });
+            
+            window.addEventListener('offline', () => {
+                appState.isOnline = false;
+                updateConnectionStatus();
+                updateSyncStatus('offline');
+            });
+        }
+
+        // @FUNCTIONALITY: Initialization
+        function initializeApp() {
+            // Initialize database service
+            dbService.initialize(DATABASE_CONFIG);
+            
+            // Set up event listeners
+            initializeEventListeners();
+            
+            // Update initial displays
+            updateWeekDisplay();
+            updateConnectionStatus();
+            updateSyncStatus('synced');
+            
+            // Check for remembered user
+            const rememberedUser = localStorage.getItem('rememberedUser');
+            if (rememberedUser) {
+                document.getElementById('username').value = rememberedUser;
+                document.getElementById('rememberPassword').checked = true;
+                appState.rememberPassword = true;
+            }
+            
+            // Initialize icons
+            lucide.createIcons();
+            
+            console.log('✅ Roster Management System initialized');
+        }
+
+        // Start the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
