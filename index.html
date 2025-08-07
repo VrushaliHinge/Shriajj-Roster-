@@ -833,6 +833,20 @@
                         </button>
                     </div>
 
+                    <!-- Edit Mode Notice -->
+                    <div id="editModeNotice" class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">
+                                    <strong>View Mode:</strong> Click the "Edit" button above to add or modify shifts.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Roster Grid -->
                     <div class="overflow-x-auto">
                         <div id="rosterGrid" class="roster-grid">
@@ -1762,14 +1776,19 @@
             
             const editBtn = document.getElementById('editModeBtn');
             const saveBtn = document.getElementById('saveModeBtn');
+            const notice = document.getElementById('editModeNotice');
             
             if (appState.editMode) {
                 editBtn.classList.add('hidden');
                 saveBtn.classList.remove('hidden');
+                notice.classList.add('hidden');
+                console.log('✏️ Edit mode enabled');
             } else {
                 editBtn.classList.remove('hidden');
                 saveBtn.classList.add('hidden');
+                notice.classList.remove('hidden');
                 saveRosterData();
+                console.log('👁️ View mode enabled');
             }
             
             renderRosterGrid();
