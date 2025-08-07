@@ -2459,6 +2459,14 @@
             window.URL.revokeObjectURL(url);
         }
         
+        function convertTo12Hour(time24) {
+            const [hours, minutes] = time24.split(':');
+            const hour = parseInt(hours, 10);
+            const ampm = hour >= 12 ? 'pm' : 'am';
+            const hour12 = hour % 12 || 12;
+            return `${hour12}:${minutes}${ampm}`;
+        }
+
         function downloadPreviousWeek() {
             // Navigate to previous week and generate report
             navigateWeek('prev');
@@ -2504,61 +2512,81 @@
                 return dayName;
             }).join(',') + '\n';
             
-            // Process each location
+            // Create a grid structure like the original table
+            // Find maximum employees per location/day combination
+            let maxEmployeesPerCell = 1;
             appState.locations.forEach(location => {
-                csvContent += `${location}`;
-                
                 weekDays.forEach(day => {
-                    let cellContent = '';
-                    
-                    // Find all employees scheduled for this location and day
-                    const scheduledEmployees = [];
+                    let employeeCount = 0;
+                    appState.employees.forEach(employee => {
+                        const employeeShifts = weekData[employee]?.[day] || [];
+                        if (employeeShifts.some(shift => shift.location === location)) {
+                            employeeCount++;
+                        }
+                    });
+                    maxEmployeesPerCell = Math.max(maxEmployeesPerCell, employeeCount);
+                });
+            });
+            
+            // Process each location with individual employee rows
+            appState.locations.forEach(location => {
+                // Collect all employees for this location across all days
+                const locationEmployeesByDay = {};
+                weekDays.forEach(day => {
+                    locationEmployeesByDay[day] = [];
                     appState.employees.forEach(employee => {
                         const employeeShifts = weekData[employee]?.[day] || [];
                         employeeShifts.forEach(shift => {
                             if (shift.location === location) {
                                 const startTime = shift.scheduledStart || '09:00';
                                 const endTime = shift.scheduledEnd || '17:00';
-                                // Calculate shift hours for display
-                                const hours = calculateHours(
-                                    shift.scheduledStart,
-                                    shift.scheduledEnd,
-                                    shift.actualStart,
-                                    shift.actualEnd,
-                                    day,
-                                    shift.leaveType,
-                                    shift.leaveHours,
-                                    shift.isPublicHoliday
-                                );
+                                // Convert to 12-hour format
+                                const start12hr = convertTo12Hour(startTime);
+                                const end12hr = convertTo12Hour(endTime);
                                 
-                                scheduledEmployees.push(`${employee}
-${startTime} - ${endTime}
-${hours.total}h`);
+                                locationEmployeesByDay[day].push({
+                                    name: employee,
+                                    timeRange: `${start12hr} - ${end12hr}`,
+                                    startTime: startTime
+                                });
                             }
                         });
                     });
-                    
-                    // Format cell content - multiple employees separated by double line breaks
-                    if (scheduledEmployees.length > 0) {
-                        cellContent = scheduledEmployees.join('\n\n');
-                    } else {
-                        cellContent = '';
-                    }
-                    
-                    csvContent += `,"${cellContent}"`;
+                    // Sort by start time
+                    locationEmployeesByDay[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
                 });
                 
-                csvContent += '\n';
+                // Find max employees for this location to determine how many rows needed
+                const maxEmployees = Math.max(1, ...weekDays.map(day => locationEmployeesByDay[day].length));
+                
+                // Create rows for each employee position
+                for (let empIndex = 0; empIndex < maxEmployees; empIndex++) {
+                    if (empIndex === 0) {
+                        csvContent += location; // Location name only on first row
+                    } else {
+                        csvContent += ''; // Empty location cell for subsequent rows
+                    }
+                    
+                    weekDays.forEach(day => {
+                        const employee = locationEmployeesByDay[day][empIndex];
+                        if (employee) {
+                            csvContent += `,"${employee.name}
+Scheduled: ${employee.timeRange}"`;
+                        } else {
+                            csvContent += ','; // Empty cell
+                        }
+                    });
+                    
+                    csvContent += '\n';
+                }
             });
             
-            // Add footer information
-            csvContent += '\n\n';
-            csvContent += 'Notes:\n';
-            csvContent += '- Times shown include calculated hours with proper break deductions\n';
-            csvContent += '- 30 minute break deducted from shifts over 4 hours\n';
-            csvContent += '- Overtime rates apply for work after 6:00 PM\n';
-            csvContent += '- Weekend and public holiday rates as per award\n\n';
-            csvContent += `© ${today.getFullYear()} Shriajj Pty Ltd - Staff Roster Management System\n`;
+            // Add footer information matching original format
+            csvContent += '\n';
+            csvContent += 'Legend: Scheduled | Actual | Annual Leave (AL) | Sick Leave (SL) | Public Holiday (PH) | Notes\n';
+            csvContent += 'Public holidays are highlighted in pink background\n\n';
+            csvContent += `© ${today.getFullYear()} Shriajj Pty Ltd - Weekly Combined Roster | Generated from Staff Roster Management System\n`;
+            csvContent += 'App designed and developed by Vrushali Hinge\n';
             
             // Create and download file
             const blob = new Blob([csvContent], { type: 'text/csv' });
