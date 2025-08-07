@@ -1520,22 +1520,25 @@
         function handleLogin(event) {
             event.preventDefault();
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
             
-            // Check credentials
-            const validCredentials = Object.entries(appState.appConfig.users).find(
-                ([role, validPassword]) => validPassword === password && username === role
-            );
-            
-            if (validCredentials) {
+            // Validate credentials using same logic as original React app
+            if (appState.appConfig.users[username] && appState.appConfig.users[username] === password) {
                 appState.isLoggedIn = true;
-                appState.currentUser = validCredentials[0]; // role name
+                appState.currentUser = username;
                 
-                // Save remembered password if checked
+                // Save credentials if remember password is checked
                 if (document.getElementById('rememberPassword').checked) {
-                    localStorage.setItem('rememberedPassword', password);
-                    localStorage.setItem('rememberedUsername', username);
+                    const credentialsToSave = {
+                        username,
+                        password,
+                        remember: true
+                    };
+                    sessionStorage.setItem(`${appState.appConfig.locationId}-saved-credentials`, JSON.stringify(credentialsToSave));
+                } else {
+                    // Clear saved credentials if remember is unchecked
+                    sessionStorage.removeItem(`${appState.appConfig.locationId}-saved-credentials`);
                 }
                 
                 showMainApp();
@@ -1581,6 +1584,22 @@
             document.getElementById('mainApp').classList.remove('hidden');
             document.getElementById('currentUserDisplay').textContent = appState.currentUser;
             loadRosterData();
+        }
+        
+        function loadRememberedLogin() {
+            try {
+                const savedCredentials = sessionStorage.getItem(`${appState.appConfig.locationId}-saved-credentials`);
+                if (savedCredentials) {
+                    const { username, password, remember } = JSON.parse(savedCredentials);
+                    if (remember) {
+                        document.getElementById('username').value = username;
+                        document.getElementById('password').value = password;
+                        document.getElementById('rememberPassword').checked = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load remembered login:', error);
+            }
         }
 
         // Tab Management
