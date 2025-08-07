@@ -386,11 +386,12 @@
             font-size: 0.875rem;
         }
 
-        .roster-cell.employee-name {
+        .roster-cell.location-name {
             background-color: var(--card);
             justify-content: flex-start;
             align-items: flex-start;
             padding: 1rem;
+            font-weight: 600;
         }
 
         .shift-card {
@@ -399,10 +400,11 @@
             border-radius: 0.375rem;
             padding: 0.5rem;
             margin: 0.125rem 0;
-            font-size: 0.75rem;
+            font-size: 0.875rem;
             cursor: pointer;
             transition: all 0.15s ease-in-out;
             width: 100%;
+            text-align: center;
             text-align: center;
         }
 
@@ -1631,20 +1633,20 @@
             // Clear existing grid
             grid.innerHTML = '';
             
-            // Add header row
-            grid.appendChild(createHeaderCell('Employee'));
+            // Add header row - first cell is "Location", then days
+            grid.appendChild(createHeaderCell('Location'));
             weekDays.forEach(day => {
                 grid.appendChild(createHeaderCell(day));
             });
             
-            // Add employee rows
-            appState.employees.forEach(employee => {
-                // Employee name cell
-                grid.appendChild(createEmployeeNameCell(employee));
+            // Add location rows
+            appState.locations.forEach(location => {
+                // Location name cell
+                grid.appendChild(createLocationNameCell(location));
                 
-                // Day cells
+                // Day cells for this location
                 weekDays.forEach(day => {
-                    grid.appendChild(createDayCell(employee, day, currentWeekData[employee]?.[day] || []));
+                    grid.appendChild(createLocationDayCell(location, day, currentWeekData));
                 });
             });
             
@@ -1661,56 +1663,67 @@
             return cell;
         }
 
-        function createEmployeeNameCell(employee) {
+        function createLocationNameCell(location) {
             const cell = document.createElement('div');
-            cell.className = 'roster-cell employee-name';
+            cell.className = 'roster-cell location-name';
             cell.innerHTML = `
-                <div class="font-medium text-gray-900">${employee}</div>
-                <div class="text-sm text-gray-500">View Schedule</div>
+                <div class="font-medium text-gray-900">${location}</div>
             `;
             return cell;
         }
 
-        function createDayCell(employee, day, shifts = []) {
+        function createLocationDayCell(location, day, weekData) {
             const cell = document.createElement('div');
             cell.className = 'roster-cell';
             
-            if (appState.editMode) {
-                cell.innerHTML = `
-                    <button onclick="openShiftModal('', '${day}', '${employee}', null)" class="btn-ghost w-full">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                    </button>
-                `;
-            }
+            // Find employees scheduled for this location and day
+            const scheduledEmployees = [];
             
-            shifts.forEach(shift => {
-                const shiftCard = createShiftCard(shift, employee, day);
-                cell.appendChild(shiftCard);
+            // Look through all employees to find who's scheduled for this location/day
+            appState.employees.forEach(employee => {
+                const employeeShifts = weekData[employee]?.[day] || [];
+                employeeShifts.forEach(shift => {
+                    if (shift.location === location) {
+                        scheduledEmployees.push({
+                            employee: employee,
+                            shift: shift
+                        });
+                    }
+                });
             });
+            
+            // Add scheduled employees to the cell
+            scheduledEmployees.forEach(({ employee, shift }) => {
+                const employeeCard = createEmployeeCard(employee, shift, location, day);
+                cell.appendChild(employeeCard);
+            });
+            
+            // Add button for adding new employee to this location/day if in edit mode
+            if (appState.editMode) {
+                const addButton = document.createElement('button');
+                addButton.className = 'btn-ghost w-full mt-1';
+                addButton.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i>';
+                addButton.onclick = () => openShiftModal('', day, location, null);
+                cell.appendChild(addButton);
+            }
             
             return cell;
         }
 
-        function createShiftCard(shift, employee, day) {
+        function createEmployeeCard(employee, shift, location, day) {
             const card = document.createElement('div');
             card.className = 'shift-card';
             
-            if (shift.leaveType) {
-                card.style.backgroundColor = getLeaveTypeColor(shift.leaveType);
-                card.style.color = 'white';
-                card.innerHTML = `
-                    <div>${getLeaveTypeDisplay(shift.leaveType)}</div>
-                    <div class="text-xs">${shift.leaveHours || 8}h</div>
-                `;
-            } else {
-                card.innerHTML = `
-                    <div>${shift.scheduledStart || '09:00'} - ${shift.scheduledEnd || '17:00'}</div>
-                    <div class="text-xs">${shift.location || appState.locations[0]}</div>
-                `;
-            }
+            // Format according to original design: Employee name with time range
+            card.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 2px;">${employee}</div>
+                <div style="font-size: 0.8rem; opacity: 0.8;">
+                    ${shift.scheduledStart || '09:00'} - ${shift.scheduledEnd || '17:00'}
+                </div>
+            `;
             
             if (appState.editMode) {
-                card.onclick = () => openShiftModal(employee, day, employee, shift);
+                card.onclick = () => openShiftModal(employee, day, location, shift);
             }
             
             return card;
@@ -2094,16 +2107,18 @@
                 const passwordInput = document.getElementById('password');
                 const icon = document.querySelector('#togglePassword i');
                 
-                if (passwordInput.type === 'password') {
-                    passwordInput.type = 'text';
-                    icon.setAttribute('data-lucide', 'eye');
-                } else {
-                    passwordInput.type = 'password';
-                    icon.setAttribute('data-lucide', 'eye-off');
-                }
-                
-                if (window.lucide) {
-                    lucide.createIcons();
+                if (passwordInput && icon) {
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        icon.setAttribute('data-lucide', 'eye');
+                    } else {
+                        passwordInput.type = 'password';
+                        icon.setAttribute('data-lucide', 'eye-off');
+                    }
+                    
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
                 }
             });
             

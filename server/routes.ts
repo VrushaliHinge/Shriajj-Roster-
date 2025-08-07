@@ -15,9 +15,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // API endpoint to provide database configuration
   app.get('/api/config', (req, res) => {
+    // Extract Supabase URL from DATABASE_URL if it's a postgres connection string
+    let supabaseUrl = 'https://uuorqbugdhfoikylbxdz.supabase.co';
+    const dbUrl = process.env.DATABASE_URL;
+    
+    if (dbUrl && dbUrl.includes('supabase')) {
+      // If DATABASE_URL contains supabase, extract the project URL
+      const match = dbUrl.match(/\/\/([^.]+)\.supabase\.co/);
+      if (match) {
+        supabaseUrl = `https://${match[1]}.supabase.co`;
+      }
+    }
+    
     res.json({
       supabase: {
-        url: process.env.DATABASE_URL || 'https://uuorqbugdhfoikylbxdz.supabase.co',
+        url: supabaseUrl,
         key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1b3JxYnVnZGhmb2lreWxieGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0MzQ4NDcsImV4cCI6MjA3MDAxMDg0N30.-d7xjLnyFVoVKbruKhVJthHYCFUkkrWlwijDbrKdye4',
         enabled: true
       }
