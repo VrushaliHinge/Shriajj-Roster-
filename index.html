@@ -359,6 +359,50 @@
             background-color: var(--muted);
         }
 
+        .btn-action {
+            padding: 1rem 2rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 200px;
+        }
+
+        .btn-purple {
+            background-color: #8b5cf6;
+            color: white;
+        }
+
+        .btn-purple:hover {
+            background-color: #7c3aed;
+            transform: translateY(-1px);
+        }
+
+        .btn-blue {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-blue:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-green {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .btn-green:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+
         /* Grid Layout */
         .roster-grid {
             display: grid;
@@ -771,6 +815,22 @@
                                 Save
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-center items-center space-x-4 mt-6">
+                        <button id="previousWeekBtn" class="btn-action btn-purple">
+                            <i data-lucide="upload" class="w-4 h-4 mr-2"></i>
+                            Previous Week
+                        </button>
+                        <button id="downloadCombinedBtn" class="btn-action btn-blue">
+                            <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                            Download Combined Roster
+                        </button>
+                        <button id="exportEmployeesBtn" class="btn-action btn-green">
+                            <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                            Export for Employees
+                        </button>
                     </div>
 
                     <!-- Roster Grid -->
@@ -2180,6 +2240,106 @@
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
         }
+        
+        function downloadPreviousWeek() {
+            // Navigate to previous week and generate report
+            navigateWeek('prev');
+            setTimeout(() => {
+                downloadCombinedRoster();
+            }, 500);
+        }
+        
+        function downloadCombinedRoster() {
+            const weekKey = getCurrentWeekKey();
+            const weekString = getCurrentWeekString();
+            const weekData = appState.allRosterData[weekKey] || {};
+            const weekDays = getCurrentWeekDates();
+            
+            // Create CSV content for combined roster
+            let csvContent = `Combined Roster - Week ${weekString}\n\n`;
+            csvContent += 'Location,Day,Employee,Start Time,End Time,Hours\n';
+            
+            // Organize data by location and day
+            appState.locations.forEach(location => {
+                weekDays.forEach(day => {
+                    // Find employees scheduled for this location and day
+                    appState.employees.forEach(employee => {
+                        const employeeShifts = weekData[employee]?.[day] || [];
+                        employeeShifts.forEach(shift => {
+                            if (shift.location === location) {
+                                const startTime = shift.scheduledStart || '09:00';
+                                const endTime = shift.scheduledEnd || '17:00';
+                                const hours = calculateShiftHours(startTime, endTime);
+                                csvContent += `${location},${day},${employee},${startTime},${endTime},${hours}\n`;
+                            }
+                        });
+                    });
+                });
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `combined-roster-${weekKey}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function exportForEmployees() {
+            const weekKey = getCurrentWeekKey();
+            const weekString = getCurrentWeekString();
+            const weekData = appState.allRosterData[weekKey] || {};
+            const weekDays = getCurrentWeekDates();
+            
+            // Create employee-friendly CSV content
+            let csvContent = `Employee Roster - Week ${weekString}\n\n`;
+            csvContent += 'Employee,Day,Location,Start Time,End Time,Hours,Notes\n';
+            
+            // Organize by employee
+            appState.employees.forEach(employee => {
+                const employeeData = weekData[employee] || {};
+                weekDays.forEach(day => {
+                    const shifts = employeeData[day] || [];
+                    if (shifts.length === 0) {
+                        csvContent += `${employee},${day},,,,0,Day Off\n`;
+                    } else {
+                        shifts.forEach(shift => {
+                            const startTime = shift.scheduledStart || '09:00';
+                            const endTime = shift.scheduledEnd || '17:00';
+                            const hours = calculateShiftHours(startTime, endTime);
+                            const notes = shift.notes || '';
+                            csvContent += `${employee},${day},${shift.location || ''},${startTime},${endTime},${hours},"${notes}"\n`;
+                        });
+                    }
+                });
+                csvContent += '\n'; // Add blank line between employees
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `employee-roster-${weekKey}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function calculateShiftHours(startTime, endTime) {
+            if (!startTime || !endTime) return 0;
+            
+            const start = new Date(`2024-01-01 ${startTime}`);
+            const end = new Date(`2024-01-01 ${endTime}`);
+            const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            
+            return Math.max(0, Math.round(hours * 2) / 2); // Round to nearest 0.5
+        }
 
         function calculateTotalShifts(weekData) {
             let total = 0;
@@ -2332,6 +2492,11 @@
             // Edit mode
             document.getElementById('editModeBtn').addEventListener('click', toggleEditMode);
             document.getElementById('saveModeBtn').addEventListener('click', toggleEditMode);
+            
+            // Action buttons
+            document.getElementById('previousWeekBtn').addEventListener('click', downloadPreviousWeek);
+            document.getElementById('downloadCombinedBtn').addEventListener('click', downloadCombinedRoster);
+            document.getElementById('exportEmployeesBtn').addEventListener('click', exportForEmployees);
             
             // Modal management
             document.getElementById('closeModal').addEventListener('click', closeShiftModal);
