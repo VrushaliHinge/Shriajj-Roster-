@@ -1674,16 +1674,19 @@
                 appState.currentUser = username;
                 
                 // Save credentials if remember password is checked
-                if (document.getElementById('rememberPassword').checked) {
+                const rememberChecked = document.getElementById('rememberPassword').checked;
+                if (rememberChecked) {
                     const credentialsToSave = {
                         username,
                         password,
                         remember: true
                     };
                     sessionStorage.setItem(`${appState.appConfig.locationId}-saved-credentials`, JSON.stringify(credentialsToSave));
+                    console.log('✅ Credentials saved to session storage');
                 } else {
                     // Clear saved credentials if remember is unchecked
                     sessionStorage.removeItem(`${appState.appConfig.locationId}-saved-credentials`);
+                    console.log('🗑️ Credentials removed from session storage');
                 }
                 
                 showMainApp();
@@ -3160,25 +3163,39 @@
                     e.stopPropagation();
                     
                     const passwordInput = document.getElementById('password');
-                    const icon = document.querySelector('#togglePassword i');
+                    const icon = togglePasswordBtn.querySelector('i');
                     
-                    console.log('Password toggle clicked', { passwordInput, icon });
+                    console.log('Password toggle clicked', { passwordInput, icon, currentType: passwordInput?.type });
                     
-                    if (passwordInput && icon) {
+                    if (passwordInput) {
                         if (passwordInput.type === 'password') {
                             passwordInput.type = 'text';
-                            icon.setAttribute('data-lucide', 'eye');
+                            if (icon) {
+                                icon.setAttribute('data-lucide', 'eye');
+                                // Force icon update
+                                icon.outerHTML = '<i data-lucide="eye" class="w-5 h-5"></i>';
+                            }
                             appState.showPassword = true;
+                            console.log('✅ Password now visible');
                         } else {
                             passwordInput.type = 'password';
-                            icon.setAttribute('data-lucide', 'eye-off');
+                            if (icon) {
+                                icon.setAttribute('data-lucide', 'eye-off');
+                                // Force icon update
+                                icon.outerHTML = '<i data-lucide="eye-off" class="w-5 h-5"></i>';
+                            }
                             appState.showPassword = false;
+                            console.log('✅ Password now hidden');
                         }
                         
-                        // Refresh Lucide icons
-                        if (window.lucide) {
-                            lucide.createIcons();
-                        }
+                        // Refresh Lucide icons after DOM update
+                        setTimeout(() => {
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        }, 10);
+                    } else {
+                        console.error('Password input not found');
                     }
                 });
             } else {
@@ -3191,6 +3208,12 @@
                 rememberCheckbox.addEventListener('change', (e) => {
                     appState.rememberPassword = e.target.checked;
                     console.log('Remember password changed:', e.target.checked);
+                    
+                    // If unchecking, immediately clear stored credentials
+                    if (!e.target.checked) {
+                        sessionStorage.removeItem(`${appState.appConfig.locationId}-saved-credentials`);
+                        console.log('🗑️ Cleared saved credentials immediately');
+                    }
                 });
             } else {
                 console.error('Remember password checkbox not found');
