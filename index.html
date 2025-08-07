@@ -2476,25 +2476,24 @@
             // Clear existing content
             tableBody.innerHTML = '';
             
-            // Calculate data for each employee
+            // Calculate data for each employee using the same method as Roster weekly summary
             appState.employees.forEach(employee => {
-                const employeeData = weekData[employee] || {};
-                const payRateBreakdown = calculateEmployeePayRates(employeeData, weekDays);
+                const payRateBreakdown = getWeeklySummary(employee);
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="border border-gray-200 px-3 py-2 font-medium">${employee}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.regular}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.overtime}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.saturday}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-purple-600">${payRateBreakdown.sunday}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.phWork}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-green-600">${payRateBreakdown.annualLeave}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-yellow-600">${payRateBreakdown.sickLeave}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-pink-600">${payRateBreakdown.publicHolidayLeave}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-cyan-600">${payRateBreakdown.mandatory}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-gray-600">${payRateBreakdown.remainingReg}</td>
-                    <td class="border border-gray-200 px-3 py-2 text-center text-green-700 font-bold">${payRateBreakdown.total}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.remainingRegularHours.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.overtime.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.saturday.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-purple-600">${payRateBreakdown.sunday.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.publicHoliday.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-green-600">${payRateBreakdown.annualLeave.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-yellow-600">${payRateBreakdown.sickLeave.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-pink-600">${payRateBreakdown.publicHolidayLeave.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-cyan-600">${payRateBreakdown.mandatoryHours.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-gray-600">${payRateBreakdown.remainingRegularHours.toFixed(1)}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-green-700 font-bold">${payRateBreakdown.total.toFixed(1)}</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -2989,10 +2988,9 @@
     </div>
 `;
             
-            // Process each employee using the same calculation method as Reports tab
+            // Process each employee using the same calculation method as Reports tab and Roster weekly summary
             appState.employees.forEach(employee => {
-                const employeeData = weekData[employee] || {};
-                const weeklyHours = calculateEmployeePayRates(employeeData, weekDays);
+                const weeklyHours = getWeeklySummary(employee);
                 
                 htmlContent += `
     <div class="employee-section">
@@ -3005,47 +3003,47 @@
             <div class="summary-grid">
                 <div class="summary-item" style="background-color: #eff6ff;">
                     <span class="summary-label">Regular:</span>
-                    <span class="summary-value">${weeklyHours.regular}h</span>
+                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fef3f2;">
                     <span class="summary-label">Overtime:</span>
-                    <span class="summary-value">${weeklyHours.overtime}h</span>
+                    <span class="summary-value">${weeklyHours.overtime.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fdf8f6;">
                     <span class="summary-label">Saturday:</span>
-                    <span class="summary-value">${weeklyHours.saturday}h</span>
+                    <span class="summary-value">${weeklyHours.saturday.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #faf5ff;">
                     <span class="summary-label">Sunday:</span>
-                    <span class="summary-value">${weeklyHours.sunday}h</span>
+                    <span class="summary-value">${weeklyHours.sunday.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fef2f2;">
                     <span class="summary-label">PH Work:</span>
-                    <span class="summary-value">${weeklyHours.phWork}h</span>
+                    <span class="summary-value">${weeklyHours.publicHoliday.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #f0fdf4;">
                     <span class="summary-label">AL:</span>
-                    <span class="summary-value">${weeklyHours.annualLeave}h</span>
+                    <span class="summary-value">${weeklyHours.annualLeave.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fffbeb;">
                     <span class="summary-label">SL:</span>
-                    <span class="summary-value">${weeklyHours.sickLeave}h</span>
+                    <span class="summary-value">${weeklyHours.sickLeave.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fdf2f8;">
                     <span class="summary-label">PHL:</span>
-                    <span class="summary-value">${weeklyHours.publicHolidayLeave}h</span>
+                    <span class="summary-value">${weeklyHours.publicHolidayLeave.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #ecfdf5;">
                     <span class="summary-label">Mandatory (24h):</span>
-                    <span class="summary-value">${weeklyHours.mandatory}h</span>
+                    <span class="summary-value">${weeklyHours.mandatoryHours.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #f8fafc;">
                     <span class="summary-label">Remaining Reg:</span>
-                    <span class="summary-value">${weeklyHours.remainingReg}h</span>
+                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(1)}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #ecfdf5; font-weight: bold;">
                     <span class="summary-label">Total:</span>
-                    <span class="summary-value">${weeklyHours.total}h</span>
+                    <span class="summary-value">${weeklyHours.total.toFixed(1)}h</span>
                 </div>
             </div>
         </div>
