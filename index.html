@@ -2493,26 +2493,52 @@
                 year: 'numeric'
             });
             
-            // Create CSV content matching the original format exactly
-            let csvContent = `SHRIAJJ PTY LTD\n`;
-            csvContent += `Weekly Combined Roster: ${weekString}\n`;
-            csvContent += `Generated on ${dateString} at ${timeString}\n\n`;
+            // Create HTML content matching the original format exactly
+            let htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Shriajj_Combined_Roster_${weekString.replace(/\s+/g, '_').replace(/,/g, '')}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .company-name { font-size: 18px; font-weight: bold; color: #4285f4; }
+        .roster-title { font-size: 14px; margin: 5px 0; }
+        .generated { font-size: 12px; color: #666; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+        th { background-color: #f5f5f5; font-weight: bold; text-align: center; }
+        .location-cell { font-weight: bold; background-color: #f9f9f9; }
+        .employee-cell { font-size: 12px; }
+        .legend { margin-top: 20px; font-size: 12px; }
+        .footer { margin-top: 20px; font-size: 11px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-name">SHRIAJJ PTY LTD</div>
+        <div class="roster-title">Weekly Combined Roster: ${weekString}</div>
+        <div class="generated">Generated on ${dateString} at ${timeString}</div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Location</th>`;</htmlContent;
             
-            // Create header row with proper day formatting (matching original)
-            const dayHeaders = weekDays.map(day => {
+            // Add header columns with proper day formatting
+            weekDays.forEach(day => {
                 const parts = day.split(' ');
-                return `${parts[1]}-${parts[0]}`;  // Format as "3-Aug", "4-Aug", etc.
-            });
-            csvContent += ',' + dayHeaders.join(',') + '\n';
-            
-            // Add day names row
-            csvContent += ',' + weekDays.map(day => {
+                const dayHeader = `${parts[1]}-${parts[0]}`;  // Format as "3-Aug", "4-Aug", etc.
                 const date = new Date(day + ', 2025');
                 const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-                return dayName;
-            }).join(',') + '\n';
+                htmlContent += `<th>${dayHeader}<br>${dayName}</th>`;
+            });
             
-            // Process each location - create a simple table structure
+            htmlContent += `</tr>
+        </thead>
+        <tbody>`;
+            
+            // Process each location - create HTML table rows
             appState.locations.forEach((location, locationIndex) => {
                 // Find all employees working at this location this week
                 const locationEmployees = new Set();
@@ -2530,21 +2556,21 @@
                 
                 // If no employees, create one empty row
                 if (sortedEmployees.length === 0) {
-                    csvContent += location;
+                    htmlContent += `<tr><td class="location-cell">${location}</td>`;
                     weekDays.forEach(() => {
-                        csvContent += ',"-"';
+                        htmlContent += '<td>-</td>';
                     });
-                    csvContent += '\n';
+                    htmlContent += '</tr>';
                     return;
                 }
                 
                 // Create one row per employee for this location
                 sortedEmployees.forEach((employee, empIndex) => {
+                    htmlContent += '<tr>';
+                    
                     // Location name only on first employee row
                     if (empIndex === 0) {
-                        csvContent += location;
-                    } else {
-                        csvContent += '';
+                        htmlContent += `<td class="location-cell" rowspan="${sortedEmployees.length}">${location}</td>`;
                     }
                     
                     // Add employee data for each day
@@ -2558,30 +2584,41 @@
                             const start12hr = convertTo12Hour(startTime);
                             const end12hr = convertTo12Hour(endTime);
                             
-                            csvContent += `,"${employee}
-Scheduled: ${start12hr} - ${end12hr}"`;
+                            htmlContent += `<td class="employee-cell">
+                                <strong>${employee}</strong><br>
+                                Scheduled: ${start12hr} - ${end12hr}
+                            </td>`;
                         } else {
-                            csvContent += ',""';
+                            htmlContent += '<td></td>';
                         }
                     });
                     
-                    csvContent += '\n';
+                    htmlContent += '</tr>';
                 });
             });
             
-            // Add footer information matching original format
-            csvContent += '\n';
-            csvContent += 'Legend: Scheduled | Actual | Annual Leave (AL) | Sick Leave (SL) | Public Holiday (PH) | Notes\n';
-            csvContent += 'Public holidays are highlighted in pink background\n\n';
-            csvContent += `© ${today.getFullYear()} Shriajj Pty Ltd - Weekly Combined Roster | Generated from Staff Roster Management System\n`;
-            csvContent += 'App designed and developed by Vrushali Hinge\n';
+            htmlContent += `
+        </tbody>
+    </table>
+    
+    <div class="legend">
+        <strong>Legend:</strong> Scheduled | Actual | Annual Leave (AL) | Sick Leave (SL) | Public Holiday (PH) | Notes<br>
+        Public holidays are highlighted in pink background
+    </div>
+    
+    <div class="footer">
+        © ${today.getFullYear()} Shriajj Pty Ltd - Weekly Combined Roster | Generated from Staff Roster Management System<br>
+        App designed and developed by Vrushali Hinge
+    </div>
+</body>
+</html>`;
             
-            // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/csv' });
+            // Create and download HTML file
+            const blob = new Blob([htmlContent], { type: 'text/html' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Shriajj_Combined_Roster_${weekString.replace(/\s+/g, '_').replace(/,/g, '')}.csv`;
+            a.download = `Shriajj_Combined_Roster_${weekString.replace(/\s+/g, '_').replace(/,/g, '')}.html`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
