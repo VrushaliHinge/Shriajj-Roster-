@@ -2523,7 +2523,8 @@
     <table>
         <thead>
             <tr>
-                <th>Location</th>`;</htmlContent;
+                <th>Location</th>`;
+            htmlContent += ``;
             
             // Add header columns with proper day formatting
             weekDays.forEach(day => {
@@ -2879,6 +2880,9 @@
         async function initializeApp() {
             console.log('🚀 Initializing Staff Roster Management System...');
             
+            // Set up event listeners first (including login form)
+            setupEventListeners();
+            
             // Load database configuration from server first
             await loadDatabaseConfig();
             
@@ -2891,9 +2895,6 @@
                 updateConnectionStatus();
             }
             
-            // Set up event listeners
-            setupEventListeners();
-            
             // Load saved authentication if remembered
             loadRememberedLogin();
             
@@ -2903,7 +2904,7 @@
             // Update week display
             updateWeekDisplay();
             
-            // Initialize Lucide icons
+            // Initialize Lucide icons (this will handle both login and main app icons)
             if (window.lucide) {
                 lucide.createIcons();
             }
