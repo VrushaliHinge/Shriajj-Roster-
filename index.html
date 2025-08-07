@@ -2989,10 +2989,10 @@
     </div>
 `;
             
-            // Process each employee using the same calculation method as weekly summary
+            // Process each employee using the same calculation method as Reports tab
             appState.employees.forEach(employee => {
                 const employeeData = weekData[employee] || {};
-                const weeklyHours = getWeeklySummary(employee);
+                const weeklyHours = calculateEmployeePayRates(employeeData, weekDays);
                 
                 htmlContent += `
     <div class="employee-section">
@@ -3005,47 +3005,47 @@
             <div class="summary-grid">
                 <div class="summary-item" style="background-color: #eff6ff;">
                     <span class="summary-label">Regular:</span>
-                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.regular}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fef3f2;">
                     <span class="summary-label">Overtime:</span>
-                    <span class="summary-value">${weeklyHours.overtime.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.overtime}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fdf8f6;">
                     <span class="summary-label">Saturday:</span>
-                    <span class="summary-value">${weeklyHours.saturday.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.saturday}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #faf5ff;">
                     <span class="summary-label">Sunday:</span>
-                    <span class="summary-value">${weeklyHours.sunday.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.sunday}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fef2f2;">
                     <span class="summary-label">PH Work:</span>
-                    <span class="summary-value">${weeklyHours.publicHoliday.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.phWork}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #f0fdf4;">
                     <span class="summary-label">AL:</span>
-                    <span class="summary-value">${weeklyHours.annualLeave.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.annualLeave}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fffbeb;">
                     <span class="summary-label">SL:</span>
-                    <span class="summary-value">${weeklyHours.sickLeave.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.sickLeave}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #fdf2f8;">
                     <span class="summary-label">PHL:</span>
-                    <span class="summary-value">${weeklyHours.publicHolidayLeave.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.publicHolidayLeave}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #ecfdf5;">
                     <span class="summary-label">Mandatory (24h):</span>
-                    <span class="summary-value">${weeklyHours.mandatoryHours.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.mandatory}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #f8fafc;">
                     <span class="summary-label">Remaining Reg:</span>
-                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.remainingReg}h</span>
                 </div>
                 <div class="summary-item" style="background-color: #ecfdf5; font-weight: bold;">
                     <span class="summary-label">Total:</span>
-                    <span class="summary-value">${weeklyHours.total.toFixed(2)}h</span>
+                    <span class="summary-value">${weeklyHours.total}h</span>
                 </div>
             </div>
         </div>
