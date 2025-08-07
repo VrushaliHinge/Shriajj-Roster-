@@ -2088,8 +2088,11 @@
             const totalHours = hours.total;
             const hoursDisplay = totalHours > 0 ? `${totalHours}h` : '';
             
-            // Add PH indicator for public holidays
-            const publicHolidayIndicator = shift.isPublicHoliday ? '<div style="font-size: 0.7rem; color: #BE185D; font-weight: 600; margin-top: 2px;">PUBLIC HOLIDAY</div>' : '';
+            // Add PH indicator for public holidays (only if it's actually a public holiday, not just PH leave)
+            const publicHolidayIndicator = (shift.isPublicHoliday && !shift.leaveType) ? '<div style="font-size: 0.7rem; color: #BE185D; font-weight: 600; margin-top: 2px;">PUBLIC HOLIDAY</div>' : '';
+            
+            // Add leave type indicator if present
+            const leaveIndicator = shift.leaveType ? `<div style="font-size: 0.7rem; color: #059669; font-weight: 600; margin-top: 2px;">${shift.leaveType.toUpperCase()} LEAVE</div>` : '';
             
             // Format according to original design: Employee name with time range and hours
             card.innerHTML = `
@@ -2099,6 +2102,7 @@
                 </div>
                 ${hoursDisplay ? `<div style="font-size: 0.75rem; color: #6B7280; margin-top: 2px; font-weight: 500;">${hoursDisplay}</div>` : ''}
                 ${publicHolidayIndicator}
+                ${leaveIndicator}
             `;
             
             if (appState.editMode) {
@@ -2182,7 +2186,10 @@
             document.getElementById('shiftEndTime').value = shift?.scheduledEnd || '17:00';
             document.getElementById('shiftLeaveType').value = shift?.leaveType || '';
             document.getElementById('shiftNotes').value = shift?.notes || '';
-            document.getElementById('publicHolidayFlag').checked = shift?.isPublicHoliday || false;
+            
+            // Set public holiday flag only if it's a true working public holiday (not on leave)
+            const isWorkingPublicHoliday = shift?.isPublicHoliday && !shift?.leaveType;
+            document.getElementById('publicHolidayFlag').checked = isWorkingPublicHoliday || false;
         }
 
         function handleShiftFormSubmit(event) {
@@ -2193,14 +2200,18 @@
             const selectedEmployee = document.getElementById('shiftEmployee').value;
             const selectedLocation = document.getElementById('shiftLocation').value;
             
+            const leaveType = document.getElementById('shiftLeaveType').value;
+            const isPublicHolidayChecked = document.getElementById('publicHolidayFlag').checked;
+            
             const formData = {
                 employee: selectedEmployee,
                 location: selectedLocation,
                 scheduledStart: document.getElementById('shiftStartTime').value,
                 scheduledEnd: document.getElementById('shiftEndTime').value,
-                leaveType: document.getElementById('shiftLeaveType').value,
+                leaveType: leaveType,
                 notes: document.getElementById('shiftNotes').value,
-                isPublicHoliday: document.getElementById('publicHolidayFlag').checked,
+                // Set isPublicHoliday only if it's checked AND no leave type is selected (working public holiday)
+                isPublicHoliday: isPublicHolidayChecked && !leaveType,
                 actualStart: '',
                 actualEnd: '',
                 leaveHours: 0
