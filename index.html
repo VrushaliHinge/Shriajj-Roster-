@@ -403,6 +403,16 @@
             transform: translateY(-1px);
         }
 
+        .btn-orange {
+            background-color: #f97316;
+            color: white;
+        }
+
+        .btn-orange:hover {
+            background-color: #ea580c;
+            transform: translateY(-1px);
+        }
+
         /* Grid Layout */
         .roster-grid {
             display: grid;
@@ -822,10 +832,14 @@
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex justify-center items-center space-x-4 mt-6">
-                        <button id="previousWeekBtn" class="btn-action btn-purple">
-                            <i data-lucide="upload" class="w-4 h-4 mr-2"></i>
-                            Previous Week
+                    <div class="flex justify-center items-center space-x-4 mt-6 flex-wrap">
+                        <button id="copyPreviousWeekBtn" class="btn-action btn-purple">
+                            <i data-lucide="copy" class="w-4 h-4 mr-2"></i>
+                            Copy Previous Week
+                        </button>
+                        <button id="datePickerBtn" class="btn-action btn-orange">
+                            <i data-lucide="calendar" class="w-4 h-4 mr-2"></i>
+                            Select Date
                         </button>
                         <button id="downloadCombinedBtn" class="btn-action btn-blue">
                             <i data-lucide="download" class="w-4 h-4 mr-2"></i>
@@ -973,6 +987,35 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Date Picker Modal -->
+    <div id="datePickerModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">Select Week Period</h3>
+                    <button id="closeDatePicker" class="btn-ghost">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                
+                <form id="datePickerForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select any date within the week you want to view</label>
+                        <input type="date" id="selectedDate" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                        <p class="text-sm text-gray-500 mt-1">The system will show the full week containing this date</p>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" id="cancelDatePicker" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary">
+                            <i data-lucide="calendar-check" class="w-4 h-4 mr-2"></i>
+                            Go to Week
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Shift Edit Modal -->
@@ -2487,12 +2530,94 @@
             return `${hour12}:${minutes}${ampm}`;
         }
 
-        function downloadPreviousWeek() {
-            // Navigate to previous week and generate report
+        function copyPreviousWeek() {
+            const currentWeekKey = getCurrentWeekKey();
+            
+            // Navigate to previous week to get its data
             navigateWeek('prev');
-            setTimeout(() => {
-                downloadCombinedRoster();
-            }, 500);
+            const previousWeekKey = getCurrentWeekKey();
+            const previousWeekData = appState.allRosterData[previousWeekKey] || {};
+            
+            // Navigate back to current week
+            navigateWeek('next');
+            
+            // Confirm action with user
+            if (Object.keys(previousWeekData).length === 0) {
+                alert('No data found in previous week to copy.');
+                return;
+            }
+            
+            const confirmCopy = confirm(`Copy ${Object.keys(previousWeekData).length} employee schedules from previous week as a template for current week?`);
+            if (!confirmCopy) return;
+            
+            // Copy previous week data to current week (remove actual start/end times)
+            const templateData = {};
+            Object.keys(previousWeekData).forEach(employee => {
+                templateData[employee] = {};
+                Object.keys(previousWeekData[employee]).forEach(day => {
+                    templateData[employee][day] = previousWeekData[employee][day].map(shift => ({
+                        ...shift,
+                        actualStart: '', // Clear actual times
+                        actualEnd: '',
+                        notes: '', // Clear notes
+                        leaveHours: 0 // Reset leave hours
+                    }));
+                });
+            });
+            
+            // Save copied data to current week
+            appState.allRosterData[currentWeekKey] = { ...appState.allRosterData[currentWeekKey], ...templateData };
+            
+            // Refresh display
+            renderRosterGrid();
+            saveRosterData();
+            
+            console.log(`✅ Copied ${Object.keys(templateData).length} employee schedules from previous week`);
+            alert(`Successfully copied ${Object.keys(templateData).length} employee schedules from previous week!`);
+        }
+
+        function showDatePicker() {
+            // Set default date to current week's start
+            const today = new Date();
+            const currentWeekStart = getWeekStart(today);
+            document.getElementById('selectedDate').value = currentWeekStart.toISOString().split('T')[0];
+            
+            document.getElementById('datePickerModal').classList.remove('hidden');
+        }
+
+        function closeDatePicker() {
+            document.getElementById('datePickerModal').classList.add('hidden');
+        }
+
+        function handleDatePickerSubmit(event) {
+            event.preventDefault();
+            const selectedDateStr = document.getElementById('selectedDate').value;
+            if (!selectedDateStr) return;
+            
+            const selectedDate = new Date(selectedDateStr + 'T12:00:00'); // Add time to avoid timezone issues
+            
+            // Calculate the Monday of the week containing the selected date
+            const weekStart = getWeekStart(selectedDate);
+            
+            // Update app state to the selected week
+            appState.currentWeekStart = weekStart;
+            
+            // Update display and load data
+            updateWeekDisplay();
+            loadRosterData();
+            renderRosterGrid();
+            
+            closeDatePicker();
+            
+            const weekString = getCurrentWeekString();
+            console.log(`✅ Navigated to week: ${weekString}`);
+        }
+
+        function getWeekStart(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+            return new Date(d.setDate(diff));
         }
         
         function downloadCombinedRoster() {
@@ -3012,9 +3137,22 @@
             document.getElementById('saveModeBtn').addEventListener('click', toggleEditMode);
             
             // Action buttons
-            document.getElementById('previousWeekBtn').addEventListener('click', downloadPreviousWeek);
+            document.getElementById('copyPreviousWeekBtn').addEventListener('click', copyPreviousWeek);
+            document.getElementById('datePickerBtn').addEventListener('click', showDatePicker);
             document.getElementById('downloadCombinedBtn').addEventListener('click', downloadCombinedRoster);
             document.getElementById('exportEmployeesBtn').addEventListener('click', exportForEmployees);
+            
+            // Date picker modal
+            document.getElementById('closeDatePicker').addEventListener('click', closeDatePicker);
+            document.getElementById('cancelDatePicker').addEventListener('click', closeDatePicker);
+            document.getElementById('datePickerForm').addEventListener('submit', handleDatePickerSubmit);
+            
+            // Close date picker when clicking outside
+            document.getElementById('datePickerModal').addEventListener('click', (e) => {
+                if (e.target.id === 'datePickerModal') {
+                    closeDatePicker();
+                }
+            });
             
             // Modal management
             document.getElementById('closeModal').addEventListener('click', closeShiftModal);
