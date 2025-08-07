@@ -839,6 +839,34 @@
                             <!-- Grid will be populated by JavaScript -->
                         </div>
                     </div>
+                    
+                    <!-- Weekly Hours Summary by Pay Rate -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Weekly Hours Summary by Pay Rate</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="p-2 text-left font-semibold text-gray-700 border-r">Employee</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-blue-50">Regular</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-orange-50">Overtime</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-indigo-50">Saturday</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-purple-50">Sunday</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-red-50">PH Work</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-green-50">AL</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-yellow-50">SL</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-pink-50">PHL</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-cyan-50">Mandatory (24h)</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 border-r bg-gray-50">Remaining Reg</th>
+                                        <th class="p-2 text-center font-semibold text-gray-700 bg-emerald-50">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="weeklySummaryTableBody">
+                                    <!-- Table rows will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1779,6 +1807,83 @@
             if (window.lucide) {
                 lucide.createIcons();
             }
+            
+            // Update weekly summary table
+            renderWeeklySummaryTable();
+        }
+        
+        function renderWeeklySummaryTable() {
+            const tableBody = document.getElementById('weeklySummaryTableBody');
+            if (!tableBody) return;
+            
+            tableBody.innerHTML = '';
+            
+            appState.employees.forEach((employee, index) => {
+                const summary = getWeeklySummary(employee);
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                
+                row.innerHTML = `
+                    <td class="p-2 font-medium text-gray-800 border-r">${employee}</td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-blue-100 text-blue-900">
+                            ${summary.mondayToFridayRegular.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-orange-100 text-orange-900">
+                            ${summary.overtime.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-indigo-100 text-indigo-900">
+                            ${summary.saturday.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-purple-100 text-purple-900">
+                            ${summary.sunday.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-red-100 text-red-900">
+                            ${summary.publicHoliday.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-green-100 text-green-900">
+                            ${summary.annualLeave.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-yellow-100 text-yellow-900">
+                            ${summary.sickLeave.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-pink-100 text-pink-900">
+                            ${summary.publicHolidayLeave.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-cyan-100 text-cyan-900">
+                            ${summary.mandatoryHours.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center border-r">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-gray-100 text-gray-900">
+                            ${summary.remainingRegularHours.toFixed(1)}
+                        </span>
+                    </td>
+                    <td class="p-2 text-center">
+                        <span class="px-2 py-1 rounded text-sm font-bold bg-emerald-100 text-emerald-900">
+                            ${summary.total.toFixed(1)}
+                        </span>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
         }
 
         function createHeaderCell(text) {
@@ -2364,6 +2469,61 @@
             const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
             
             return Math.max(0, Math.round(hours * 2) / 2); // Round to nearest 0.5
+        }
+
+        function getWeeklySummary(employee) {
+            const weekKey = getCurrentWeekKey();
+            const weekData = appState.allRosterData[weekKey] || {};
+            const employeeData = weekData[employee] || {};
+            const weekDays = getCurrentWeekDates();
+            
+            let mondayToFridayRegular = 0;
+            let overtimeTotal = 0;
+            let saturdayTotal = 0;
+            let sundayTotal = 0;
+            let publicHolidayTotal = 0;
+            let annualLeaveTotal = 0;
+            let sickLeaveTotal = 0;
+            let publicHolidayLeaveTotal = 0;
+            let totalHours = 0;
+
+            weekDays.forEach(day => {
+                const dayHours = getDailyHours(employee, day);
+                totalHours += dayHours.total;
+                publicHolidayTotal += dayHours.publicHoliday;
+                annualLeaveTotal += dayHours.annualLeave;
+                sickLeaveTotal += dayHours.sickLeave;
+                publicHolidayLeaveTotal += dayHours.publicHolidayLeave;
+                
+                if (day.includes('Sat')) {
+                    saturdayTotal += dayHours.total;
+                } else if (day.includes('Sun')) {
+                    sundayTotal += dayHours.total;
+                } else {
+                    mondayToFridayRegular += dayHours.regular;
+                    overtimeTotal += dayHours.overtime;
+                }
+            });
+
+            const mandatoryCategories = sundayTotal + saturdayTotal + overtimeTotal + publicHolidayTotal;
+            const mandatoryFromRegular = Math.min(mondayToFridayRegular, Math.max(0, 24 - mandatoryCategories));
+            const totalMandatory = mandatoryCategories + mandatoryFromRegular;
+            const remainingRegularHours = Math.max(0, mondayToFridayRegular - mandatoryFromRegular);
+            const calculatedTotal = totalMandatory + remainingRegularHours;
+
+            return {
+                mondayToFridayRegular,
+                overtime: overtimeTotal,
+                saturday: saturdayTotal,
+                sunday: sundayTotal,
+                publicHoliday: publicHolidayTotal,
+                annualLeave: annualLeaveTotal,
+                sickLeave: sickLeaveTotal,
+                publicHolidayLeave: publicHolidayLeaveTotal,
+                mandatoryHours: totalMandatory,
+                remainingRegularHours: remainingRegularHours,
+                total: calculatedTotal
+            };
         }
 
         function calculateTotalShifts(weekData) {
