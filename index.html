@@ -1106,7 +1106,7 @@
             // UI State
             activeTab: 'roster',
             editMode: false,
-            currentWeekStart: new Date(2025, 7, 3), // Aug 3, 2025
+            currentWeekStart: new Date(2025, 7, 3), // Aug 3, 2025 (Sunday)
             showPassword: false,
             rememberPassword: false,
             
@@ -2636,7 +2636,7 @@
             
             const selectedDate = new Date(selectedDateStr + 'T12:00:00'); // Add time to avoid timezone issues
             
-            // Calculate the Monday of the week containing the selected date
+            // Calculate the Sunday of the week containing the selected date
             const weekStart = getWeekStart(selectedDate);
             
             // Update app state to the selected week
@@ -2655,8 +2655,8 @@
 
         function getWeekStart(date) {
             const d = new Date(date);
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+            const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const diff = d.getDate() - day; // Go back to Sunday (day 0)
             return new Date(d.setDate(diff));
         }
         
