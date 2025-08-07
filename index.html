@@ -1086,14 +1086,32 @@
                     
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Start Time</label>
+                            <label class="block text-sm font-medium text-gray-700">Start Time (Scheduled)</label>
                             <input id="shiftStartTime" type="time" class="w-full mt-1" value="09:00">
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">End Time</label>
+                            <label class="block text-sm font-medium text-gray-700">End Time (Scheduled)</label>
                             <input id="shiftEndTime" type="time" class="w-full mt-1" value="17:00">
                         </div>
+                    </div>
+                    
+                    <div class="border-t pt-4 mt-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Actual Times (for payroll)</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Actual Start</label>
+                                <input id="shiftActualStart" type="time" class="w-full mt-1" placeholder="Leave empty if same as scheduled">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Actual End</label>
+                                <input id="shiftActualEnd" type="time" class="w-full mt-1" placeholder="Leave empty if same as scheduled">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">
+                            Use actual times to track early/late arrivals and calculate precise payroll hours
+                        </p>
                     </div>
                     
                     <div>
@@ -1607,7 +1625,7 @@
             
             // Deduct 30 minutes break time only for shifts over 4 hours (not for overtime)
             let workingHours = totalHours > 4 ? totalHours - 0.5 : totalHours;
-            workingHours = Math.max(0, workingHours);
+            workingHours = Math.max(0, parseFloat(workingHours.toFixed(2)));
             
             // Initialize leave hours
             let annualLeaveHours = 0;
@@ -1691,15 +1709,15 @@
             }
             
             return {
-                total: workingHours,
-                regular: Math.max(0, regularHours),
-                overtime: Math.max(0, overtimeHours), // Overtime after 6pm (different pay rate)
+                total: parseFloat(workingHours.toFixed(2)),
+                regular: parseFloat(Math.max(0, regularHours).toFixed(2)),
+                overtime: parseFloat(Math.max(0, overtimeHours).toFixed(2)), // Overtime after 6pm (different pay rate)
                 publicHoliday: 0,
-                sundayHours: Math.max(0, sundayHours), // 2nd priority for 24hrs mandatory
-                saturdayHours: Math.max(0, saturdayHours), // 3rd priority for 24hrs mandatory
-                annualLeave: annualLeaveHours,
-                sickLeave: sickLeaveHours,
-                publicHolidayLeave: publicHolidayLeaveHours
+                sundayHours: parseFloat(Math.max(0, sundayHours).toFixed(2)), // 2nd priority for 24hrs mandatory
+                saturdayHours: parseFloat(Math.max(0, saturdayHours).toFixed(2)), // 3rd priority for 24hrs mandatory
+                annualLeave: parseFloat(annualLeaveHours.toFixed(2)),
+                sickLeave: parseFloat(sickLeaveHours.toFixed(2)),
+                publicHolidayLeave: parseFloat(publicHolidayLeaveHours.toFixed(2))
             };
         }
 
@@ -2229,6 +2247,8 @@
             // Set form values
             document.getElementById('shiftStartTime').value = shift?.scheduledStart || '09:00';
             document.getElementById('shiftEndTime').value = shift?.scheduledEnd || '17:00';
+            document.getElementById('shiftActualStart').value = shift?.actualStart || '';
+            document.getElementById('shiftActualEnd').value = shift?.actualEnd || '';
             document.getElementById('shiftLeaveType').value = shift?.leaveType || '';
             document.getElementById('shiftNotes').value = shift?.notes || '';
             
@@ -2253,12 +2273,12 @@
                 location: selectedLocation,
                 scheduledStart: document.getElementById('shiftStartTime').value,
                 scheduledEnd: document.getElementById('shiftEndTime').value,
+                actualStart: document.getElementById('shiftActualStart').value || '',
+                actualEnd: document.getElementById('shiftActualEnd').value || '',
                 leaveType: leaveType,
                 notes: document.getElementById('shiftNotes').value,
                 // Set isPublicHoliday only if it's checked AND no leave type is selected (working public holiday)
                 isPublicHoliday: isPublicHolidayChecked && !leaveType,
-                actualStart: '',
-                actualEnd: '',
                 leaveHours: 0
             };
             
@@ -2953,14 +2973,14 @@
             
             const start = new Date(`2024-01-01 ${startTime}`);
             const end = new Date(`2024-01-01 ${endTime}`);
-            let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            let hours = parseFloat(((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2));
             
             // Deduct 30 minutes break time only for shifts over 4 hours
             if (hours > 4) {
                 hours -= 0.5;
             }
             
-            return Math.max(0, Math.round(hours * 2) / 2); // Round to nearest 0.5
+            return Math.max(0, parseFloat(hours.toFixed(2))); // Round to 2 decimal places
         }
 
         function getDailyHours(employee, day) {
