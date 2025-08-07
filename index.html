@@ -819,10 +819,50 @@
             <!-- Reports Tab -->
             <div id="reportsTab" class="tab-content hidden">
                 <div class="space-y-6">
-                    <h2 class="text-lg font-semibold">Weekly Reports</h2>
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold">Weekly Reports</h2>
+                        <div class="flex items-center space-x-2">
+                            <button id="exportReport" class="btn-secondary">
+                                <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                                Export
+                            </button>
+                            <button id="refreshReport" class="btn-primary">
+                                <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Hours Summary by Pay Rate -->
+                    <div class="bg-white rounded-lg border p-6">
+                        <h3 class="text-lg font-semibold mb-4">Hours Summary by Pay Rate</h3>
+                        <div class="overflow-x-auto">
+                            <table id="payRateTable" class="w-full border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-50">
+                                        <th class="border border-gray-200 px-3 py-2 text-left font-medium">Employee</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-blue-600">Regular</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-red-600">Overtime</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-blue-600">Saturday</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-purple-600">Sunday</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-red-600">PH Work</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-green-600">AL</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-yellow-600">SL</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-pink-600">PHL</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-cyan-600">Mandatory (24h)</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-gray-600">Remaining Reg</th>
+                                        <th class="border border-gray-200 px-3 py-2 text-center font-medium text-green-700">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payRateTableBody">
+                                    <!-- Table rows will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                     
                     <div id="reportsContent" class="space-y-4">
-                        <!-- Reports will be populated here -->
+                        <!-- Additional reports will be populated here -->
                     </div>
                 </div>
             </div>
@@ -1954,38 +1994,191 @@
 
         // Reports Functions
         function renderReportsTab() {
-            const container = document.getElementById('reportsContent');
-            if (!container) return;
+            generatePayRateReport();
+            
+            // Initialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+        
+        function generatePayRateReport() {
+            const tableBody = document.getElementById('payRateTableBody');
+            if (!tableBody) return;
             
             const weekKey = getCurrentWeekKey();
             const weekData = appState.allRosterData[weekKey] || {};
+            const weekDays = getCurrentWeekDates();
             
-            container.innerHTML = `
-                <div class="bg-white p-6 rounded-lg shadow-sm border">
-                    <h3 class="text-lg font-semibold mb-4">Weekly Summary - ${getCurrentWeekString()}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-primary">${Object.keys(weekData).length}</div>
-                            <div class="text-sm text-gray-500">Active Employees</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-success">${calculateTotalShifts(weekData)}</div>
-                            <div class="text-sm text-gray-500">Total Shifts</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-warning">${calculateTotalHours(weekData)}</div>
-                            <div class="text-sm text-gray-500">Total Hours</div>
-                        </div>
-                    </div>
-                </div>
+            // Clear existing content
+            tableBody.innerHTML = '';
+            
+            // Calculate data for each employee
+            appState.employees.forEach(employee => {
+                const employeeData = weekData[employee] || {};
+                const payRateBreakdown = calculateEmployeePayRates(employeeData, weekDays);
                 
-                <div class="bg-white p-6 rounded-lg shadow-sm border">
-                    <h3 class="text-lg font-semibold mb-4">Employee Breakdown</h3>
-                    <div class="space-y-2">
-                        ${generateEmployeeReports(weekData)}
-                    </div>
-                </div>
-            `;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border border-gray-200 px-3 py-2 font-medium">${employee}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.regular}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.overtime}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-blue-600">${payRateBreakdown.saturday}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-purple-600">${payRateBreakdown.sunday}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-red-600">${payRateBreakdown.phWork}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-green-600">${payRateBreakdown.annualLeave}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-yellow-600">${payRateBreakdown.sickLeave}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-pink-600">${payRateBreakdown.publicHolidayLeave}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-cyan-600">${payRateBreakdown.mandatory}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-gray-600">${payRateBreakdown.remainingReg}</td>
+                    <td class="border border-gray-200 px-3 py-2 text-center text-green-700 font-bold">${payRateBreakdown.total}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function calculateEmployeePayRates(employeeData, weekDays) {
+            let regular = 0;
+            let overtime = 0;
+            let saturday = 0;
+            let sunday = 0;
+            let phWork = 0;
+            let annualLeave = 0;
+            let sickLeave = 0;
+            let publicHolidayLeave = 0;
+            let mandatory = 0;
+            
+            // Days of week mapping
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
+            weekDays.forEach((displayDay, index) => {
+                const shifts = employeeData[displayDay] || [];
+                const dayOfWeek = index; // 0 = Sunday, 6 = Saturday
+                
+                shifts.forEach(shift => {
+                    const hours = calculateDetailedHours(shift, dayOfWeek);
+                    
+                    // Add hours to appropriate categories
+                    regular += hours.regular;
+                    overtime += hours.overtime;
+                    saturday += hours.saturday;
+                    sunday += hours.sunday;
+                    phWork += hours.publicHoliday;
+                    annualLeave += hours.annualLeave;
+                    sickLeave += hours.sickLeave;
+                    publicHolidayLeave += hours.publicHolidayLeave;
+                });
+            });
+            
+            // Calculate mandatory (24h per week standard)
+            const totalWorkedHours = regular + overtime + saturday + sunday + phWork;
+            mandatory = Math.min(totalWorkedHours, 24);
+            
+            // Calculate remaining regular hours
+            const remainingReg = Math.max(0, regular - mandatory);
+            
+            // Calculate total
+            const total = regular + overtime + saturday + sunday + phWork + annualLeave + sickLeave + publicHolidayLeave;
+            
+            return {
+                regular: regular.toFixed(1),
+                overtime: overtime.toFixed(1),
+                saturday: saturday.toFixed(1),
+                sunday: sunday.toFixed(1),
+                phWork: phWork.toFixed(1),
+                annualLeave: annualLeave.toFixed(1),
+                sickLeave: sickLeave.toFixed(1),
+                publicHolidayLeave: publicHolidayLeave.toFixed(1),
+                mandatory: mandatory.toFixed(1),
+                remainingReg: remainingReg.toFixed(1),
+                total: total.toFixed(1)
+            };
+        }
+        
+        function calculateDetailedHours(shift, dayOfWeek) {
+            const result = {
+                regular: 0,
+                overtime: 0,
+                saturday: 0,
+                sunday: 0,
+                publicHoliday: 0,
+                annualLeave: 0,
+                sickLeave: 0,
+                publicHolidayLeave: 0
+            };
+            
+            // Handle leave types
+            if (shift.leaveType) {
+                const leaveHours = shift.leaveHours || 8;
+                switch (shift.leaveType) {
+                    case 'annual':
+                        result.annualLeave = leaveHours;
+                        break;
+                    case 'sick':
+                        result.sickLeave = leaveHours;
+                        break;
+                    case 'public':
+                        result.publicHolidayLeave = leaveHours;
+                        break;
+                }
+                return result;
+            }
+            
+            // Calculate worked hours
+            const startTime = shift.actualStart || shift.scheduledStart || '09:00';
+            const endTime = shift.actualEnd || shift.scheduledEnd || '17:00';
+            
+            if (!startTime || !endTime) return result;
+            
+            const start = new Date(`2024-01-01 ${startTime}`);
+            const end = new Date(`2024-01-01 ${endTime}`);
+            let totalHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            
+            if (totalHours <= 0) return result;
+            
+            // Classify hours based on day of week
+            if (dayOfWeek === 0) { // Sunday
+                result.sunday = totalHours;
+            } else if (dayOfWeek === 6) { // Saturday
+                result.saturday = totalHours;
+            } else { // Monday to Friday
+                if (totalHours <= 8) {
+                    result.regular = totalHours;
+                } else {
+                    result.regular = 8;
+                    result.overtime = totalHours - 8;
+                }
+            }
+            
+            return result;
+        }
+        
+        function exportReport() {
+            const weekKey = getCurrentWeekKey();
+            const weekString = getCurrentWeekString();
+            
+            // Create CSV content
+            let csvContent = `Hours Summary by Pay Rate - Week ${weekString}\n`;
+            csvContent += 'Employee,Regular,Overtime,Saturday,Sunday,PH Work,AL,SL,PHL,Mandatory (24h),Remaining Reg,Total\n';
+            
+            appState.employees.forEach(employee => {
+                const employeeData = appState.allRosterData[weekKey]?.[employee] || {};
+                const weekDays = getCurrentWeekDates();
+                const payRateBreakdown = calculateEmployeePayRates(employeeData, weekDays);
+                
+                csvContent += `${employee},${payRateBreakdown.regular},${payRateBreakdown.overtime},${payRateBreakdown.saturday},${payRateBreakdown.sunday},${payRateBreakdown.phWork},${payRateBreakdown.annualLeave},${payRateBreakdown.sickLeave},${payRateBreakdown.publicHolidayLeave},${payRateBreakdown.mandatory},${payRateBreakdown.remainingReg},${payRateBreakdown.total}\n`;
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hours-summary-${weekKey}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
         }
 
         function calculateTotalShifts(weekData) {
@@ -2086,6 +2279,9 @@
             // Load saved authentication if remembered
             loadRememberedLogin();
             
+            // Initialize sample data if none exists
+            initializeSampleData();
+            
             // Update week display
             updateWeekDisplay();
             
@@ -2161,6 +2357,12 @@
                 updateConnectionStatus();
             });
             
+            // Reports buttons
+            document.getElementById('exportReport').addEventListener('click', exportReport);
+            document.getElementById('refreshReport').addEventListener('click', () => {
+                renderReportsTab();
+            });
+            
             // Real-time data updates
             dbService.onDataChange((change) => {
                 console.log('Real-time update received:', change);
@@ -2178,6 +2380,56 @@
                 document.getElementById('username').value = rememberedUsername;
                 document.getElementById('password').value = rememberedPassword;
                 document.getElementById('rememberPassword').checked = true;
+            }
+        }
+        
+        function initializeSampleData() {
+            const weekKey = getCurrentWeekKey();
+            
+            // Only initialize if no data exists for current week
+            if (!appState.allRosterData[weekKey]) {
+                appState.allRosterData[weekKey] = {
+                    'Bhanush': {
+                        'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Caroline Springs' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }]
+                    },
+                    'Girish': {
+                        'Sun 3-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Caroline Springs' }]
+                    },
+                    'Aravind': {
+                        'Mon 4-Aug': [{ scheduledStart: '09:15', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
+                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '12:00', location: 'Werribee Plaza' }]
+                    },
+                    'Vansh': {
+                        'Sat 9-Aug': [{ scheduledStart: '09:00', scheduledEnd: '13:30', location: 'Point Cook' }]
+                    },
+                    'Kashish': {
+                        'Mon 4-Aug': [{ scheduledStart: '09:15', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Werribee Plaza' }],
+                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza' }],
+                        'Sun 10-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Werribee Plaza' }]
+                    },
+                    'Sonam': {
+                        'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Thu 7-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Fri 8-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '13:00', location: 'Point Cook' }]
+                    },
+                    'Tejal': {
+                        'Sun 3-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:00', location: 'Point Cook' }],
+                        'Mon 4-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Tue 5-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Wed 6-Aug': [{ scheduledStart: '09:00', scheduledEnd: '17:30', location: 'Point Cook' }],
+                        'Sat 9-Aug': [{ scheduledStart: '10:00', scheduledEnd: '17:30', location: 'Point Cook' }]
+                    }
+                };
+                
+                // Save to localStorage as backup
+                localStorage.setItem('roster-cache', JSON.stringify({ [weekKey]: appState.allRosterData[weekKey] }));
             }
         }
 
