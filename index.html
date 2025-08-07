@@ -1995,12 +1995,28 @@
             const card = document.createElement('div');
             card.className = 'shift-card';
             
-            // Format according to original design: Employee name with time range
+            // Calculate shift hours using the proper business rules
+            const hours = calculateHours(
+                shift.scheduledStart,
+                shift.scheduledEnd,
+                shift.actualStart,
+                shift.actualEnd,
+                day,
+                shift.leaveType,
+                shift.leaveHours,
+                shift.isPublicHoliday
+            );
+            
+            const totalHours = hours.total;
+            const hoursDisplay = totalHours > 0 ? `${totalHours}h` : '';
+            
+            // Format according to original design: Employee name with time range and hours
             card.innerHTML = `
                 <div style="font-weight: 600; margin-bottom: 2px;">${employee}</div>
                 <div style="font-size: 0.8rem; opacity: 0.8;">
                     ${shift.scheduledStart || '09:00'} - ${shift.scheduledEnd || '17:00'}
                 </div>
+                ${hoursDisplay ? `<div style="font-size: 0.75rem; color: #6B7280; margin-top: 2px; font-weight: 500;">${hoursDisplay}</div>` : ''}
             `;
             
             if (appState.editMode) {
