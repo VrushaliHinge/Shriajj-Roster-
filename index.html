@@ -3001,38 +3001,50 @@
         </div>
         
         <div class="weekly-summary">
-            <div class="summary-label">Weekly Hours Summary (Quarter-hour rounding applied)</div>
+            <div class="summary-label">Weekly Hours Summary by Pay Rate (Quarter-hour rounding applied)</div>
             <div class="summary-grid">
-                <div class="summary-item">
-                    <span class="summary-label">Regular Hours:</span>
-                    <span class="summary-value">${weeklyHours.mondayToFridayRegular.toFixed(2)}h</span>
+                <div class="summary-item" style="background-color: #eff6ff;">
+                    <span class="summary-label">Regular:</span>
+                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
-                    <span class="summary-label">Overtime (6pm+):</span>
+                <div class="summary-item" style="background-color: #fef3f2;">
+                    <span class="summary-label">Overtime:</span>
                     <span class="summary-value">${weeklyHours.overtime.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
+                <div class="summary-item" style="background-color: #fdf8f6;">
                     <span class="summary-label">Saturday:</span>
                     <span class="summary-value">${weeklyHours.saturday.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
+                <div class="summary-item" style="background-color: #faf5ff;">
                     <span class="summary-label">Sunday:</span>
                     <span class="summary-value">${weeklyHours.sunday.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
-                    <span class="summary-label">Public Holiday:</span>
+                <div class="summary-item" style="background-color: #fef2f2;">
+                    <span class="summary-label">PH Work:</span>
                     <span class="summary-value">${weeklyHours.publicHoliday.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
-                    <span class="summary-label">Annual Leave:</span>
+                <div class="summary-item" style="background-color: #f0fdf4;">
+                    <span class="summary-label">AL:</span>
                     <span class="summary-value">${weeklyHours.annualLeave.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
-                    <span class="summary-label">Sick Leave:</span>
+                <div class="summary-item" style="background-color: #fffbeb;">
+                    <span class="summary-label">SL:</span>
                     <span class="summary-value">${weeklyHours.sickLeave.toFixed(2)}h</span>
                 </div>
-                <div class="summary-item">
-                    <span class="summary-label">Total Hours:</span>
+                <div class="summary-item" style="background-color: #fdf2f8;">
+                    <span class="summary-label">PHL:</span>
+                    <span class="summary-value">${weeklyHours.publicHolidayLeave.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item" style="background-color: #ecfdf5;">
+                    <span class="summary-label">Mandatory (24h):</span>
+                    <span class="summary-value">${weeklyHours.mandatoryHours.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item" style="background-color: #f8fafc;">
+                    <span class="summary-label">Remaining Reg:</span>
+                    <span class="summary-value">${weeklyHours.remainingRegularHours.toFixed(2)}h</span>
+                </div>
+                <div class="summary-item" style="background-color: #ecfdf5; font-weight: bold;">
+                    <span class="summary-label">Total:</span>
                     <span class="summary-value">${weeklyHours.total.toFixed(2)}h</span>
                 </div>
             </div>
