@@ -1625,7 +1625,7 @@
             
             // Deduct 30 minutes break time only for shifts over 4 hours (not for overtime)
             let workingHours = totalHours > 4 ? totalHours - 0.5 : totalHours;
-            workingHours = Math.max(0, parseFloat(workingHours.toFixed(2)));
+            workingHours = Math.max(0, roundToQuarterHour(workingHours));
             
             // Initialize leave hours
             let annualLeaveHours = 0;
@@ -1709,15 +1709,15 @@
             }
             
             return {
-                total: parseFloat(workingHours.toFixed(2)),
-                regular: parseFloat(Math.max(0, regularHours).toFixed(2)),
-                overtime: parseFloat(Math.max(0, overtimeHours).toFixed(2)), // Overtime after 6pm (different pay rate)
+                total: roundToQuarterHour(workingHours),
+                regular: roundToQuarterHour(Math.max(0, regularHours)),
+                overtime: roundToQuarterHour(Math.max(0, overtimeHours)), // Overtime after 6pm (different pay rate)
                 publicHoliday: 0,
-                sundayHours: parseFloat(Math.max(0, sundayHours).toFixed(2)), // 2nd priority for 24hrs mandatory
-                saturdayHours: parseFloat(Math.max(0, saturdayHours).toFixed(2)), // 3rd priority for 24hrs mandatory
-                annualLeave: parseFloat(annualLeaveHours.toFixed(2)),
-                sickLeave: parseFloat(sickLeaveHours.toFixed(2)),
-                publicHolidayLeave: parseFloat(publicHolidayLeaveHours.toFixed(2))
+                sundayHours: roundToQuarterHour(Math.max(0, sundayHours)), // 2nd priority for 24hrs mandatory
+                saturdayHours: roundToQuarterHour(Math.max(0, saturdayHours)), // 3rd priority for 24hrs mandatory
+                annualLeave: roundToQuarterHour(annualLeaveHours),
+                sickLeave: roundToQuarterHour(sickLeaveHours),
+                publicHolidayLeave: roundToQuarterHour(publicHolidayLeaveHours)
             };
         }
 
@@ -2599,6 +2599,9 @@
             
             if (totalHours <= 0) return result;
             
+            // Apply quarter-hour rounding to total hours
+            totalHours = roundToQuarterHour(totalHours);
+            
             // Classify hours based on day of week
             if (dayOfWeek === 0) { // Sunday
                 result.sunday = totalHours;
@@ -2973,14 +2976,28 @@
             
             const start = new Date(`2024-01-01 ${startTime}`);
             const end = new Date(`2024-01-01 ${endTime}`);
-            let hours = parseFloat(((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2));
+            let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
             
             // Deduct 30 minutes break time only for shifts over 4 hours
             if (hours > 4) {
                 hours -= 0.5;
             }
             
-            return Math.max(0, parseFloat(hours.toFixed(2))); // Round to 2 decimal places
+            // Round to nearest quarter hour (0.25, 0.5, 0.75)
+            return Math.max(0, roundToQuarterHour(hours));
+        }
+        
+        function roundToQuarterHour(hours) {
+            if (hours <= 0) return 0;
+            
+            // Convert hours to minutes for easier calculation
+            const totalMinutes = Math.round(hours * 60);
+            
+            // Round to nearest quarter hour based on minutes:
+            // 0-7 mins = 0, 8-22 mins = 0.25, 23-37 mins = 0.5, 38-52 mins = 0.75, 53+ mins = next hour
+            const quarterHours = Math.round(totalMinutes / 15) * 0.25;
+            
+            return parseFloat(quarterHours.toFixed(2));
         }
 
         function getDailyHours(employee, day) {
